@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+        name="viewport" />
+    <meta content="mobile_tab" name="shell-type" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&amp;family=Space+Grotesk:wght@300..700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <style>
+        @layer base {
+
+            html,
+            body {
+                width: 100vw;
+                margin: 0;
+                padding: 0;
+            }
+
+            body {
+                overscroll-behavior: none;
+                background-color: #FAF4EC;
+                color: #1A0F0A;
+            }
+
+            .pb-safe {
+                padding-bottom: env(safe-area-inset-bottom, 0px);
+            }
+
+            .pt-safe {
+                padding-top: env(safe-area-inset-top, 0px);
+            }
+
+            main>:first-child {
+                margin-top: 0 !important;
+            }
+
+            main>:last-child {
+                margin-bottom: 0 !important;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script
+        id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "on-primary-container": "#5c3400", "on-background": "#1d1b17", "outline": "#857465", "outline-variant": "#d7c3b1", "on-secondary": "#ffffff", "surface-container-lowest": "#ffffff", "on-secondary-fixed": "#2d1605", "on-error-container": "#93000a", "on-secondary-fixed-variant": "#5f402c", "surface-container": "#f3ede5", "error": "#ba1a1a", "on-secondary-container": "#7a5842", "surface-container-high": "#ede7df", "surface-container-highest": "#e7e2da", "surface-variant": "#e7e2da", "on-tertiary-container": "#6e270b", "surface-container-low": "#f9f3eb", "primary-fixed-dim": "#ffb86d", "on-tertiary": "#ffffff", "tertiary": "#984628", "on-surface": "#1d1b17", "primary-fixed": "#ffdcbd", "secondary-fixed": "#ffdbc7", "surface-dim": "#dfd9d2", "on-tertiary-fixed-variant": "#7a2f14", "surface-card": "#FFFFFF", "on-primary-fixed-variant": "#693c00", "tertiary-fixed": "#ffdbcf", "tertiary-container": "#f48e6a", "surface-tint": "#8a5100", "frappe-toffee": "#D8B18A", "inverse-primary": "#ffb86d", "inverse-surface": "#32302b", "error-container": "#ffdad6", "on-primary-fixed": "#2c1600", "primary": "#8a5100", "espresso-ink": "#1A0F0A", "surface-bright": "#fff8f0", "secondary-container": "#ffd1b5", "surface": "#fff8f0", "tertiary-fixed-dim": "#ffb59c", "background": "#fff8f0", "on-primary": "#ffffff", "on-error": "#ffffff", "on-tertiary-fixed": "#390c00", "primary-container": "#e59840", "secondary": "#795741", "inverse-on-surface": "#f6f0e8", "secondary-fixed-dim": "#eabda3", "badge-matcha": "#6B8E4E", "on-surface-variant": "#524437" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, spacing: { "space-xs": "0.25rem", "space-md": "1rem", "space-sm": "0.5rem", "margin-desktop": "2rem", "gutter": "1rem", "gutter-mobile": "0.75rem", "margin": "1rem", "space-xl": "2rem", "space-lg": "1.5rem" }, fontFamily: { "headline-sm": ["Space Grotesk"], "body-lg": ["DM Sans"], "headline-xl-mobile": ["Space Grotesk"], "label-md": ["Space Grotesk"], "body-md": ["DM Sans"], "headline-lg": ["Space Grotesk"], "label-lg": ["Space Grotesk"], "headline-md": ["Space Grotesk"], "label-sm": ["Space Grotesk"], "headline-xl": ["Space Grotesk"], "body-sm": ["DM Sans"] }, fontSize: { "headline-sm": ["16px", { lineHeight: "20px", letterSpacing: "0em", fontWeight: "700" }], "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }], "headline-xl-mobile": ["28px", { lineHeight: "32px", letterSpacing: "-0.02em", fontWeight: "700" }], "label-md": ["12px", { lineHeight: "14px", letterSpacing: "0.04em", fontWeight: "700" }], "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }], "headline-lg": ["24px", { lineHeight: "28px", letterSpacing: "-0.02em", fontWeight: "700" }], "label-lg": ["14px", { lineHeight: "16px", letterSpacing: "0.02em", fontWeight: "700" }], "headline-md": ["20px", { lineHeight: "24px", letterSpacing: "-0.01em", fontWeight: "700" }], "label-sm": ["10px", { lineHeight: "12px", letterSpacing: "0.06em", fontWeight: "700" }], "headline-xl": ["36px", { lineHeight: "40px", letterSpacing: "-0.03em", fontWeight: "700" }], "body-sm": ["12px", { lineHeight: "16px", fontWeight: "400" }] } } } };</script>
+    <style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+    <style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+
+<body
+    class="bg-surface font-body-md text-espresso-ink min-h-screen flex flex-col antialiased selection:bg-primary-container selection:text-espresso-ink">
+    <header class="fixed top-0 w-full z-50 pt-safe bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+        <div class="h-20 px-4 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 min-w-0"><img alt="CofiRutas Logo"
+                    class="h-8 w-auto object-contain shrink-0"
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBqfCpxTt_0NUx_qjZYZzL3OadR2nTRCG90nn7iKKpNiQjpaiRAWSPNuFxkwRiIfzkswJG47FVpyhEHHVGTgZG3GVAaQ-DL6ZiIHnBZAxfvCqkz5sPl0x1jNKEhP6kc4kSiweKt_hnsbsJJqPyc50j0cnTKiasg90KhCWSTuAy3Z1dh5Fni6XrNxPEQkcOc9UHncE2C6uUFnIRITbj5hFuRsWJ1iF4zFP5CZZBBtCt8" />
+                <div class="flex flex-col min-w-0"><span
+                        class="font-headline-sm text-headline-sm uppercase tracking-tight text-espresso-ink truncate">CofiRutas</span>
+                    <div class="inline-flex items-center gap-1 mt-0.5"><span
+                            class="px-1.5 py-0.5 bg-espresso-ink text-surface font-label-sm text-[9px] font-bold uppercase tracking-wider rounded border border-espresso-ink shadow-[1px_1px_0px_0px_#1A0F0A]">Oruro
+                            3735M</span></div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <div
+                    class="flex items-center gap-1.5 px-2.5 py-1 bg-tertiary-container rounded-full shadow-[2px_2px_0px_0px_#1A0F0A] text-on-tertiary border-2 border-espresso-ink">
+                    <span class="material-symbols-outlined text-sm leading-none">favorite</span><span
+                        class="font-label-sm text-label-sm tracking-wider uppercase font-bold text-on-tertiary truncate max-w-[130px]">Carlos
+                        &amp; Laura</span></div>
+                <div
+                    class="relative flex items-center justify-center p-0.5 rounded-full border-2 border-espresso-ink bg-surface-card shadow-[2px_2px_0px_0px_#1A0F0A]">
+                    <img alt="Carlos y Laura" class="w-8 h-8 rounded-full object-cover"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuBhRyqwpk9IvUKenxoQjYqnLdENLU_87-QIG9jwRLnYcPkjBU6QVbAFHXhayih8NmnnlVWeuPzBRiXO6dVgBDizcN6TSuwkDfq34VJ_dQ0PF734J0To-eNM70ZyClEq9R8i2q2NtthbZf93Kt-7ipbzjybmqAFHV7-WmdLJUH3w-aonpbBtvpgTmt5D7RKguINAVqu7ZDdfy7VuVdYm3saXfQtz9R23NKfYQFtFCfS7" />
+                </div>
+            </div>
+        </div>
+    </header>
+    <main class="flex flex-col relative w-full pt-20 pb-28 bg-surface">
+        <div class="flex flex-col w-full px-4 pb-8 space-y-5">
+            <!-- 1. Header & Altiplano Climate Widget -->
+            <div class="flex flex-col gap-2.5">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex flex-col">
+                        <span
+                            class="font-label-sm text-label-sm uppercase tracking-widest text-secondary font-bold">Sesión
+                            en Pareja • Oruro</span>
+                        <h1
+                            class="font-headline-xl-mobile text-headline-xl-mobile uppercase text-espresso-ink leading-tight tracking-tight">
+                            ¡Buenas tardes, Carlos &amp; Laura! ☕
+                        </h1>
+                    </div>
+                    <div
+                        class="shrink-0 p-2.5 bg-primary-container rounded-lg border-[3px] border-espresso-ink shadow-[3px_3px_0px_0px_#1A0F0A] rotate-3 hover:rotate-0 transition-transform">
+                        <span
+                            class="material-symbols-outlined text-espresso-ink text-2xl font-bold">local_fire_department</span>
+                    </div>
+                </div>
+                <!-- Oruro Weather Banner -->
+                <div
+                    class="flex items-center gap-2.5 bg-surface-card p-3 rounded-lg border-[3px] border-espresso-ink shadow-[3px_3px_0px_0px_#1A0F0A]">
+                    <div
+                        class="flex items-center justify-center w-8 h-8 rounded-full bg-secondary-container text-espresso-ink shrink-0 border-2 border-espresso-ink">
+                        <span class="material-symbols-outlined text-base">ac_unit</span>
+                    </div>
+                    <div class="flex flex-col min-w-0">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="font-label-md text-label-md uppercase text-espresso-ink font-bold">Clima
+                                Altiplano: 6°C</span>
+                            <span
+                                class="text-xs font-label-sm px-1.5 py-0.2 bg-tertiary-fixed text-espresso-ink rounded border border-espresso-ink font-bold">Sensación
+                                -2°C</span>
+                        </div>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant truncate">
+                            Viento frío a 3,735m • Ideal para Submarinos calientes con canela
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <!-- 2. Hero CofiDúo Status & Daily Craving Matcher Card -->
+            <div
+                class="relative bg-primary-container p-4 rounded-xl border-[3px] border-espresso-ink shadow-[6px_6px_0px_0px_#1A0F0A] overflow-hidden">
+                <!-- Tactile background stamp simulation -->
+                <div
+                    class="absolute -right-6 -bottom-6 w-32 h-32 rounded-full border-4 border-dashed border-espresso-ink/20 pointer-events-none flex items-center justify-center rotate-12">
+                    <span class="font-headline-sm text-headline-sm uppercase text-espresso-ink/20">ORURO 100%</span>
+                </div>
+                <div class="relative z-10 flex flex-col space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span
+                            class="inline-flex items-center gap-1 px-2.5 py-1 bg-espresso-ink text-surface-card rounded-md font-label-sm text-label-sm uppercase font-bold tracking-wider">
+                            <span class="material-symbols-outlined text-xs text-tertiary-container">favorite</span>
+                            Modo CofiDúo Activo • Día 125
+                        </span>
+                        <span
+                            class="font-label-sm text-label-sm font-bold uppercase text-espresso-ink bg-surface-card px-2 py-0.5 rounded border-2 border-espresso-ink shadow-[1px_1px_0px_0px_#1A0F0A]">
+                            Nivel: Barista Amor
+                        </span>
+                    </div>
+                    <div>
+                        <h2
+                            class="font-headline-xl-mobile text-headline-xl-mobile uppercase text-espresso-ink leading-none tracking-tight">
+                            ¿QUÉ MERENDAMOS HOY?
+                        </h2>
+                        <p class="font-body-md text-body-md text-espresso-ink font-medium mt-1">
+                            Carlos tiene antojo de café de filtro; Laura guardó churros recién hechos.
+                        </p>
+                    </div>
+                    <!-- Stamp Progress tracker -->
+                    <div
+                        class="bg-surface-card p-3 rounded-lg border-[3px] border-espresso-ink shadow-[2px_2px_0px_0px_#1A0F0A]">
+                        <div class="flex justify-between items-center mb-1.5">
+                            <span
+                                class="font-label-md text-label-md uppercase text-espresso-ink font-bold flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm text-badge-matcha">verified</span>
+                                Pasaporte Dúo
+                            </span>
+                            <span
+                                class="font-label-sm text-label-sm font-bold text-espresso-ink bg-secondary-container px-1.5 py-0.5 rounded">
+                                8 / 10 Sellos
+                            </span>
+                        </div>
+                        <!-- Progress Bar Neobrutalist -->
+                        <div
+                            class="w-full h-3.5 bg-surface-container rounded-full border-2 border-espresso-ink p-0.5 overflow-hidden">
+                            <div class="h-full bg-badge-matcha rounded-full border-r border-espresso-ink transition-all duration-500"
+                                style="width: 80%;"></div>
+                        </div>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant mt-1.5">
+                            ¡A solo 2 cafeterías de reclamar un Cheescake de Maracuyá gratis!
+                        </p>
+                    </div>
+                    <!-- Action Button -->
+                    <button
+                        class="w-full py-3.5 px-4 bg-tertiary-container text-surface-card rounded-lg border-[3px] border-espresso-ink shadow-[4px_4px_0px_0px_#1A0F0A] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2 group cursor-pointer"
+                        onclick="this.classList.toggle('scale-95')">
+                        <span
+                            class="material-symbols-outlined text-xl group-hover:rotate-12 transition-transform">bolt</span>
+                        <span class="font-headline-sm text-headline-sm uppercase tracking-wide">Abrir CofiMatcher en
+                            Vivo</span>
+                        <span
+                            class="material-symbols-outlined text-xl group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                    </button>
+                </div>
+            </div>
+            <!-- 3. Quick Action Hub (4 Chunky Neobrutalist Tiles) -->
+            <div class="flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                    <span
+                        class="font-label-md text-label-md uppercase text-espresso-ink font-bold tracking-wider">Acciones
+                        Rápidas</span>
+                    <span class="font-label-sm text-label-sm text-secondary font-bold">Atajos de Mesa</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- Tile 1: Matcher -->
+                    <a class="flex flex-col justify-between p-3.5 bg-tertiary text-on-tertiary rounded-lg border-[3px] border-espresso-ink shadow-[4px_4px_0px_0px_#1A0F0A] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all min-h-[110px]"
+                        href="#">
+                        <div class="flex justify-between items-start">
+                            <span
+                                class="material-symbols-outlined text-2xl bg-espresso-ink text-surface-card p-1 rounded border border-surface-card">style</span>
+                            <span
+                                class="text-[10px] font-label-sm font-bold bg-surface-card text-espresso-ink px-1 rounded">SWIPE</span>
+                        </div>
+                        <div>
+                            <span
+                                class="font-headline-sm text-headline-sm uppercase block leading-tight">CofiMatcher</span>
+                            <span class="font-body-sm text-body-sm text-surface-container-low opacity-90">Hagan match de
+                                antojo</span>
+                        </div>
+                    </a>
+                    <!-- Tile 2: Explorar -->
+                    <a class="flex flex-col justify-between p-3.5 bg-surface-card text-espresso-ink rounded-lg border-[3px] border-espresso-ink shadow-[4px_4px_0px_0px_#1A0F0A] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all min-h-[110px]"
+                        href="#">
+                        <div class="flex justify-between items-start">
+                            <span
+                                class="material-symbols-outlined text-2xl bg-primary-container text-espresso-ink p-1 rounded border border-espresso-ink">map</span>
+                            <span
+                                class="text-[10px] font-label-sm font-bold bg-secondary-container text-espresso-ink px-1 rounded">12
+                                SPOTS</span>
+                        </div>
+                        <div>
+                            <span class="font-headline-sm text-headline-sm uppercase block leading-tight">Explorar
+                                Rutas</span>
+                            <span class="font-body-sm text-body-sm text-on-surface-variant">Cafés de altura cerca</span>
+                        </div>
+                    </a>
+                    <!-- Tile 3: Validar PIN / Check-In -->
+                    <a class="flex flex-col justify-between p-3.5 bg-badge-matcha text-surface-card rounded-lg border-[3px] border-espresso-ink shadow-[4px_4px_0px_0px_#1A0F0A] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all min-h-[110px]"
+                        href="#">
+                        <div class="flex justify-between items-start">
+                            <span
+                                class="material-symbols-outlined text-2xl bg-espresso-ink text-surface-card p-1 rounded border border-surface-card">qr_code_scanner</span>
+                            <span
+                                class="text-[10px] font-label-sm font-bold bg-surface-card text-espresso-ink px-1 rounded">+50
+                                PTS</span>
+                        </div>
+                        <div>
+                            <span
+                                class="font-headline-sm text-headline-sm uppercase block leading-tight text-white">Validar
+                                PIN</span>
+                            <span class="font-body-sm text-body-sm text-surface-container-low opacity-95">Check-in
+                                rápido en mesa</span>
+                        </div>
+                    </a>
+                    <!-- Tile 4: Diario Dúo -->
+                    <a class="flex flex-col justify-between p-3.5 bg-frappe-toffee text-espresso-ink rounded-lg border-[3px] border-espresso-ink shadow-[4px_4px_0px_0px_#1A0F0A] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all min-h-[110px]"
+                        href="#">
+                        <div class="flex justify-between items-start">
+                            <span
+                                class="material-symbols-outlined text-2xl bg-espresso-ink text-surface-card p-1 rounded border border-surface-card">menu_book</span>
+                            <span
+                                class="text-[10px] font-label-sm font-bold bg-surface-card text-espresso-ink px-1 rounded">24
+                                FOTOS</span>
+                        </div>
+                        <div>
+                            <span class="font-headline-sm text-headline-sm uppercase block leading-tight">Diario
+                                Dúo</span>
+                            <span class="font-body-sm text-body-sm text-on-surface-variant">Recuerdos &amp; notas</span>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <!-- 4. Antojo del Día en Oruro (Featured Recommendation Spotlight) -->
+            <div class="flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                    <span
+                        class="font-label-md text-label-md uppercase text-espresso-ink font-bold tracking-wider">Antojo
+                        del Día en Oruro</span>
+                    <span class="font-label-sm text-label-sm text-tertiary font-bold flex items-center gap-0.5">
+                        <span class="material-symbols-outlined text-xs">local_fire_department</span> Top Elección
+                    </span>
+                </div>
+                <div
+                    class="bg-surface-card rounded-xl border-[3px] border-espresso-ink shadow-[4px_4px_0px_0px_#1A0F0A] overflow-hidden flex flex-col">
+                    <!-- Media Header -->
+                    <div class="relative w-full h-44 border-b-[3px] border-espresso-ink bg-surface-container">
+                        <img class="w-full h-full object-cover"
+                            data-alt="A decadent artisanal Bolivian submarino hot chocolate served in a heavy clear glass mug with thick melting chocolate bars inside rich steaming milk, flanked by three golden crunchy churros dusted with sugar, resting on a rustic wooden café table in Oruro Bolivia, warm ambient lighting with dark espresso shadows and caramel tones"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBV468lv8cYfZT9YfY8DREYrQS-XSJECr1O744NPnQ1K1KOKZ9ccbustFmALhFrJ5bIDLFGApq3JqEEqB6QoLGH5xIL3TNzXAL68K06SoZ4ZccI2lvYIlcsu9K2NR1rNz1T_zvDpieTxRWU58m2Pn9aJMbuaofV1kp5Fn1M9B3RuNrOOQ1OwcUsx9NnMRwkHjM1EHgAYo-iS9vk8l3cUCwyxJZfOOPTZQegwG5Y02hi" />
+                        <!-- Inspection Stamp Badge -->
+                        <div
+                            class="absolute top-3 left-3 bg-badge-matcha text-surface-card px-2.5 py-1 rounded border-2 border-espresso-ink shadow-[2px_2px_0px_0px_#1A0F0A] -rotate-2 font-label-sm text-label-sm uppercase font-bold flex items-center gap-1">
+                            <span class="material-symbols-outlined text-xs">whatshot</span> Tendencia de Invierno
+                        </div>
+                        <div
+                            class="absolute bottom-3 right-3 bg-primary-container text-espresso-ink px-2.5 py-1 rounded border-2 border-espresso-ink shadow-[2px_2px_0px_0px_#1A0F0A] font-headline-sm text-headline-sm">
+                            18 Bs.
+                        </div>
+                    </div>
+                    <!-- Card Body -->
+                    <div class="p-4 flex flex-col space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span
+                                class="font-label-sm text-label-sm uppercase text-tertiary font-bold tracking-wider">Café
+                                del Socavón • Plaza 10 de Febrero</span>
+                            <div class="flex items-center text-espresso-ink gap-0.5 font-label-sm text-label-sm">
+                                <span class="material-symbols-outlined text-sm text-primary-container"
+                                    style="font-variation-settings: 'FILL' 1;">star</span>
+                                <span class="font-bold">4.9</span>
+                                <span class="text-on-surface-variant font-normal">(142)</span>
+                            </div>
+                        </div>
+                        <h3 class="font-headline-md text-headline-md text-espresso-ink uppercase leading-snug">
+                            Submarino Tradicional con 3 Churros
+                        </h3>
+                        <p class="font-body-md text-body-md text-on-surface-variant">
+                            Barra artesanal de chocolate de los Yungas fundida en leche caliente espumada con toque de
+                            clavo de olor.
+                        </p>
+                        <div class="flex items-center gap-3 pt-1 text-espresso-ink">
+                            <div
+                                class="flex items-center gap-1 font-label-sm text-label-sm font-bold bg-surface-container-high px-2 py-1 rounded border border-espresso-ink">
+                                <span class="material-symbols-outlined text-sm">navigation</span>
+                                A 350m de ti
+                            </div>
+                            <div
+                                class="flex items-center gap-1 font-label-sm text-label-sm font-bold bg-surface-container-high px-2 py-1 rounded border border-espresso-ink">
+                                <span class="material-symbols-outlined text-sm">wifi</span>
+                                Wifi Rápido
+                            </div>
+                            <div
+                                class="flex items-center gap-1 font-label-sm text-label-sm font-bold bg-surface-container-high px-2 py-1 rounded border border-espresso-ink">
+                                <span class="material-symbols-outlined text-sm">nest_heat_link_gen_3</span>
+                                Calefacción
+                            </div>
+                        </div>
+                        <!-- Action Row -->
+                        <div class="pt-2 flex items-center gap-2">
+                            <button
+                                class="flex-1 py-2.5 px-3 bg-primary text-on-primary rounded-lg border-2 border-espresso-ink shadow-[3px_3px_0px_0px_#1A0F0A] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all font-headline-sm text-headline-sm uppercase text-center flex items-center justify-center gap-1.5 cursor-pointer">
+                                <span class="material-symbols-outlined text-base">pin_drop</span>
+                                Ver en el Mapa
+                            </button>
+                            <button
+                                class="p-2.5 bg-surface-container rounded-lg border-2 border-espresso-ink shadow-[3px_3px_0px_0px_#1A0F0A] text-espresso-ink active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all flex items-center justify-center cursor-pointer">
+                                <span class="material-symbols-outlined text-lg">bookmark</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 5. Pasaporte Cafetero en Curso (Mini Stamps Preview) -->
+            <div
+                class="bg-surface-card p-4 rounded-xl border-[3px] border-espresso-ink shadow-[4px_4px_0px_0px_#1A0F0A] flex flex-col space-y-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-tertiary">loyalty</span>
+                        <h4 class="font-headline-sm text-headline-sm uppercase text-espresso-ink">Sellos Recientes del
+                            Dúo</h4>
+                    </div>
+                    <a class="font-label-sm text-label-sm font-bold text-tertiary underline uppercase" href="#">Ver
+                        Todos</a>
+                </div>
+                <!-- Stamps Row Carousel -->
+                <div class="grid grid-cols-4 gap-2 pt-1">
+                    <!-- Stamp 1 Visited -->
+                    <div
+                        class="flex flex-col items-center gap-1 p-2 rounded-lg bg-surface-container-low border-2 border-espresso-ink relative group">
+                        <div
+                            class="w-12 h-12 rounded-full border-2 border-dashed border-espresso-ink bg-badge-matcha/20 flex items-center justify-center text-badge-matcha rotate-6 group-hover:rotate-0 transition-transform">
+                            <span class="material-symbols-outlined text-xl"
+                                style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                        </div>
+                        <span
+                            class="font-label-sm text-[9px] uppercase font-bold text-espresso-ink text-center leading-tight truncate w-full">Kory
+                            Café</span>
+                        <span class="text-[8px] font-label-sm text-on-surface-variant font-bold">14 Oct</span>
+                    </div>
+                    <!-- Stamp 2 Visited -->
+                    <div
+                        class="flex flex-col items-center gap-1 p-2 rounded-lg bg-surface-container-low border-2 border-espresso-ink relative group">
+                        <div
+                            class="w-12 h-12 rounded-full border-2 border-dashed border-espresso-ink bg-tertiary-container/30 flex items-center justify-center text-tertiary -rotate-3 group-hover:rotate-0 transition-transform">
+                            <span class="material-symbols-outlined text-xl"
+                                style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                        </div>
+                        <span
+                            class="font-label-sm text-[9px] uppercase font-bold text-espresso-ink text-center leading-tight truncate w-full">El
+                            Pagador</span>
+                        <span class="text-[8px] font-label-sm text-on-surface-variant font-bold">22 Oct</span>
+                    </div>
+                    <!-- Stamp 3 Visited -->
+                    <div
+                        class="flex flex-col items-center gap-1 p-2 rounded-lg bg-surface-container-low border-2 border-espresso-ink relative group">
+                        <div
+                            class="w-12 h-12 rounded-full border-2 border-dashed border-espresso-ink bg-primary-container/30 flex items-center justify-center text-primary-container rotate-3 group-hover:rotate-0 transition-transform">
+                            <span class="material-symbols-outlined text-xl"
+                                style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                        </div>
+                        <span
+                            class="font-label-sm text-[9px] uppercase font-bold text-espresso-ink text-center leading-tight truncate w-full">Chocolatería</span>
+                        <span class="text-[8px] font-label-sm text-on-surface-variant font-bold">Ayer</span>
+                    </div>
+                    <!-- Stamp 4 Empty / Next Goal -->
+                    <div
+                        class="flex flex-col items-center gap-1 p-2 rounded-lg bg-surface border-2 border-dashed border-espresso-ink/40 relative">
+                        <div
+                            class="w-12 h-12 rounded-full border-2 border-dashed border-espresso-ink/40 flex items-center justify-center text-espresso-ink/30">
+                            <span class="material-symbols-outlined text-xl">add</span>
+                        </div>
+                        <span
+                            class="font-label-sm text-[9px] uppercase font-bold text-espresso-ink/50 text-center leading-tight truncate w-full">Siguiente</span>
+                        <span class="text-[8px] font-label-sm text-espresso-ink/40 font-bold">Pendiente</span>
+                    </div>
+                </div>
+                <!-- Motivational Tip Banner -->
+                <div
+                    class="flex items-center gap-2 p-2.5 rounded-lg bg-secondary-container/60 border border-espresso-ink">
+                    <span class="material-symbols-outlined text-espresso-ink text-lg shrink-0">tips_and_updates</span>
+                    <p class="font-body-sm text-body-sm text-espresso-ink leading-tight">
+                        <strong>Tip de Altura:</strong> Pide tu café con granos de Caranavi con tostado medio para
+                        mantener la calidez corporal sin elevar tu presión.
+                    </p>
+                </div>
+            </div>
+            <!-- 6. Mini Community Activity Snippet -->
+            <div
+                class="p-3 bg-surface-container-high rounded-lg border-2 border-espresso-ink flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2 min-w-0">
+                    <div class="w-2.5 h-2.5 rounded-full bg-badge-matcha shrink-0 animate-pulse"></div>
+                    <p class="font-body-sm text-body-sm text-espresso-ink truncate">
+                        <strong>18 parejas</strong> están explorando cafeterías ahora mismo en el centro de Oruro.
+                    </p>
+                </div>
+                <span
+                    class="font-label-sm text-label-sm uppercase bg-surface-card px-2 py-0.5 rounded border border-espresso-ink shrink-0 font-bold text-espresso-ink">
+                    En Vivo
+                </span>
+            </div>
+        </div>
+    </main>
+    <nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface/95 backdrop-blur-xl shadow-[0_-2px_12px_rgba(26,15,10,0.06)]"
+        data-active-classes="bg-primary-container text-espresso-ink border-2 border-espresso-ink shadow-[2px_2px_0px_0px_#1A0F0A] font-bold">
+        <div class="flex justify-around items-center h-20 px-2 max-w-md mx-auto"><a aria-current="page"
+                class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 px-1.5 rounded-lg transition-transform active:translate-x-0.5 active:translate-y-0.5 bg-primary-container text-espresso-ink border-2 border-espresso-ink shadow-[2px_2px_0px_0px_#1A0F0A] font-bold"
+                data-path="inicio" href="#"><span class="material-symbols-outlined text-[22px]">home</span><span
+                    class="font-label-sm text-label-sm mt-0.5 truncate uppercase tracking-wider">Inicio</span></a><a
+                class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 px-1.5 rounded-lg text-on-surface-variant transition-transform active:translate-x-0.5 active:translate-y-0.5"
+                data-path="explorar" href="#"><span class="material-symbols-outlined text-[22px]">explore</span><span
+                    class="font-label-sm text-label-sm mt-0.5 truncate uppercase tracking-wider">Explorar</span></a><a
+                class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 px-1.5 rounded-lg text-on-surface-variant transition-transform active:translate-x-0.5 active:translate-y-0.5"
+                data-path="matcher" href="#"><span class="material-symbols-outlined text-[22px]">local_cafe</span><span
+                    class="font-label-sm text-label-sm mt-0.5 truncate uppercase tracking-wider">Matcher</span></a><a
+                class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 px-1.5 rounded-lg text-on-surface-variant transition-transform active:translate-x-0.5 active:translate-y-0.5"
+                data-path="check-in" href="#"><span class="material-symbols-outlined text-[22px]">verified</span><span
+                    class="font-label-sm text-label-sm mt-0.5 truncate uppercase tracking-wider">Check-In</span></a><a
+                class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 px-1.5 rounded-lg text-on-surface-variant transition-transform active:translate-x-0.5 active:translate-y-0.5"
+                data-path="duo" href="#"><span class="material-symbols-outlined text-[22px]">loyalty</span><span
+                    class="font-label-sm text-label-sm mt-0.5 truncate uppercase tracking-wider">Dúo</span></a></div>
+    </nav>
+</body>
+
+</html>
