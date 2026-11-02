@@ -1,14 +1,21 @@
 FROM node:22-alpine
 
+# Install build tools and compatibility libraries for Alpine
+RUN apk add --no-cache libc6-compat python3 make g++
+
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
+# Copy dependency files including pnpm-workspace.yaml for allowBuilds
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* ./
 
 RUN pnpm install
 
 COPY . .
+
+# Generate Prisma Client inside container
+RUN pnpm exec prisma generate
 
 EXPOSE 3001
 

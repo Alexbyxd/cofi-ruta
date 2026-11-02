@@ -34,7 +34,7 @@ services:
     ports:
       - "${BACKEND_PORT:-3001}:3001"
     volumes:
-      - ./cofi-ruta-backend:/app
+      - ./cofi-ruta-backend:/app:Z
       - /app/node_modules
     depends_on:
       postgres:
@@ -53,7 +53,7 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     volumes:
-      - ./cofi-rutas-frontend:/app
+      - ./cofi-rutas-frontend:/app:Z
       - /app/node_modules
       - /app/.next
     depends_on:
