@@ -72,14 +72,8 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
   }, []);
 
   const handleGoogleLogin = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      feedback: {
-        type: 'info',
-        message: 'Conectando con Google... Cargando cafeterías de Oruro.',
-      },
-    }));
-  }, []);
+    service.loginWithGoogle();
+  }, [service]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {

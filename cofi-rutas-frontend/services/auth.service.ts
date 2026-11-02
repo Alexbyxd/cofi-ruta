@@ -1,8 +1,25 @@
 import type { AuthResponse, AuthUser } from '../types/auth';
 
+// Valida que la URL de destino esté bajo el mismo host que baseUrl (allowlist)
+// para evitar open redirects al navegar a flujos de autenticación.
+function navigateTo(url: string, baseUrl: string): void {
+  try {
+    const target = new URL(url);
+    const base = new URL(baseUrl);
+    if (target.hostname !== base.hostname) {
+      throw new Error('Host de navegación no permitido');
+    }
+  } catch {
+    // Si baseUrl no es una URL válida, no navegamos.
+    return;
+  }
+  window.location.replace(url);
+}
+
 export interface IAuthService {
   login(credentials: { email: string; password: string }): Promise<AuthResponse>;
   register(credentials: { email: string; password: string; fullName: string }): Promise<AuthResponse>;
+  loginWithGoogle(): void;
   saveSession(session: AuthResponse): void;
   clearSession(): void;
   getSessionUser(): AuthUser | null;
@@ -57,6 +74,11 @@ export class AuthService implements IAuthService {
     }
 
     return data as AuthResponse;
+  }
+
+  loginWithGoogle(): void {
+    if (typeof window === 'undefined') return;
+    navigateTo(`${this.baseUrl}/auth/google`, this.baseUrl);
   }
 
   saveSession(session: AuthResponse): void {
