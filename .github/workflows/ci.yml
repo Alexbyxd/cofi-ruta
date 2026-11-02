@@ -39,6 +39,11 @@ jobs:
         run: pnpm lint
 
       - name: Run Unit Tests
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          JWT_ACCESS_SECRET: testaccesssecret123
+          JWT_REFRESH_SECRET: testrefreshsecret123
         run: pnpm test
 
   frontend-quality:
