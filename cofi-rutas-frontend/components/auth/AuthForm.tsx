@@ -1,4 +1,5 @@
 import React from 'react';
+import { Mail, Lock, Eye, EyeOff, CheckCircle2, Rocket, Loader2 } from 'lucide-react';
 import type { AuthMode, CoffeeSpecialty } from '../../types/auth';
 import { SpecialtyChips } from './SpecialtyChips';
 
@@ -71,9 +72,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({
           className="font-[family-name:var(--font-space-grotesk)] text-xs font-bold uppercase tracking-wider text-espresso-ink flex items-center justify-between"
         >
           <span>Correo Electrónico</span>
-          <span className="material-symbols-outlined text-[15px] text-tertiary">
-            mail
-          </span>
+          <Mail className="w-3.5 h-3.5 text-tertiary" strokeWidth={2.5} />
         </label>
         <div className="relative">
           <input
@@ -94,12 +93,10 @@ export const AuthForm: React.FC<AuthFormProps> = ({
         <div className="flex items-center justify-between">
           <label
             htmlFor="input-password"
-            className="font-[family-name:var(--font-space-grotesk)] text-xs font-bold uppercase tracking-wider text-espresso-ink flex items-center gap-1"
+            className="font-[family-name:var(--font-space-grotesk)] text-xs font-bold uppercase tracking-wider text-espresso-ink flex items-center gap-1.5"
           >
             <span>Contraseña</span>
-            <span className="material-symbols-outlined text-[15px] text-tertiary">
-              lock
-            </span>
+            <Lock className="w-3.5 h-3.5 text-tertiary" strokeWidth={2.5} />
           </label>
           {!isRegister && (
             <button
@@ -128,9 +125,11 @@ export const AuthForm: React.FC<AuthFormProps> = ({
             aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             className="absolute right-3 p-1 text-espresso-ink hover:text-primary-container cursor-pointer flex items-center justify-center"
           >
-            <span className="material-symbols-outlined text-[20px]">
-              {showPassword ? 'visibility_off' : 'visibility'}
-            </span>
+            {showPassword ? (
+              <EyeOff className="w-4 h-4" strokeWidth={2.2} />
+            ) : (
+              <Eye className="w-4 h-4" strokeWidth={2.2} />
+            )}
           </button>
         </div>
       </div>
@@ -157,9 +156,13 @@ export const AuthForm: React.FC<AuthFormProps> = ({
             ? 'CREAR PASAPORTE CAFÉ'
             : 'ENTRAR A COFIRUTAS'}
         </span>
-        <span className="material-symbols-outlined text-[20px]">
-          {isRegister ? 'check_circle' : 'rocket_launch'}
-        </span>
+        {loading ? (
+          <Loader2 className="w-5 h-5 animate-spin" strokeWidth={2.5} />
+        ) : isRegister ? (
+          <CheckCircle2 className="w-5 h-5" strokeWidth={2.5} />
+        ) : (
+          <Rocket className="w-5 h-5" strokeWidth={2.5} />
+        )}
       </button>
     </form>
   );

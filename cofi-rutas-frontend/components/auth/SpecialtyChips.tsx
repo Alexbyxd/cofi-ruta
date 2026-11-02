@@ -1,4 +1,5 @@
 import React from 'react';
+import { Coffee } from 'lucide-react';
 import type { CoffeeSpecialty, SpecialtyChipsProps } from '../../types/auth';
 
 const SPECIALTIES: readonly CoffeeSpecialty[] = ['Submarino', 'V60 Altura', 'Mocaccino'] as const;
@@ -10,8 +11,9 @@ export const SpecialtyChips: React.FC<SpecialtyChipsProps> = ({
   return (
     <div className="flex flex-col gap-1.5 p-3 bg-surface-container border-[2px] border-espresso-ink rounded-lg w-full">
       <div className="flex items-center justify-between">
-        <span className="font-[family-name:var(--font-space-grotesk)] text-[11px] font-bold uppercase tracking-wider text-espresso-ink">
-          Tu especialidad preferida:
+        <span className="font-[family-name:var(--font-space-grotesk)] text-[11px] font-bold uppercase tracking-wider text-espresso-ink flex items-center gap-1.5">
+          <Coffee className="w-3.5 h-3.5 text-espresso-ink" strokeWidth={2.5} />
+          <span>Tu especialidad preferida:</span>
         </span>
         <span className="font-[family-name:var(--font-space-grotesk)] text-[10px] text-badge-matcha font-bold uppercase tracking-wider">
           Oruro Barista Choice

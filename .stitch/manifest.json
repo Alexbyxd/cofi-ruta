@@ -1,0 +1,22 @@
+{
+  "version": "1.0",
+  "stitch": {
+    "projectId": "projects/17305238942107884719",
+    "referenceScreen": {
+      "id": "11369357753554064679",
+      "route": "/inicio",
+      "title": "Inicio — CofiRutas",
+      "deviceType": "DESKTOP",
+      "extractedAt": "2026-11-02T20:14:55.956Z"
+    },
+    "referenceScreens": [
+      {
+        "id": "11369357753554064679",
+        "route": "/inicio",
+        "title": "Inicio — CofiRutas",
+        "deviceType": "DESKTOP",
+        "extractedAt": "2026-11-02T20:14:55.956Z"
+      }
+    ]
+  }
+}

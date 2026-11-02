@@ -58,21 +58,21 @@ export class PairingService {
     });
 
     if (!token) {
-      throw new NotFoundException('Invalid or expired QR token');
+      throw new NotFoundException('Token QR no encontrado o inválido');
     }
 
     if (token.usedAt) {
-      throw new BadRequestException('This QR token has already been used');
+      throw new BadRequestException('Este token QR ya ha sido reclamado');
     }
 
     if (new Date() > token.expiresAt) {
       throw new BadRequestException(
-        'This QR token has expired. Please generate a new one.',
+        'Este token QR ha expirado. Por favor, genera uno nuevo.',
       );
     }
 
     if (token.creatorId === claimerId) {
-      throw new BadRequestException('You cannot pair with yourself');
+      throw new BadRequestException('No puedes reclamar tu propio token QR');
     }
 
     if (token.type === 'DUO') {
@@ -89,7 +89,7 @@ export class PairingService {
       if (existing) {
         if (existing.status === 'ACTIVE') {
           throw new ConflictException(
-            'You are already paired in Modo Dúo with this user',
+            'Ya estás emparejado en Modo Dúo con este usuario',
           );
         }
         const updatedLink = await this.prisma.coupleLink.update({
@@ -111,7 +111,7 @@ export class PairingService {
         });
 
         return {
-          message: 'Successfully paired in Modo Dúo!',
+          message: 'Emparejado exitosamente en Modo Dúo!',
           type: 'DUO',
           link: updatedLink,
         };
@@ -135,7 +135,7 @@ export class PairingService {
       });
 
       return {
-        message: 'Successfully paired in Modo Dúo!',
+        message: 'Emparejado exitosamente en Modo Dúo!',
         type: 'DUO',
         link: newLink,
       };
@@ -152,7 +152,7 @@ export class PairingService {
       });
 
       if (existingMember) {
-        throw new ConflictException('You are already a member of this group');
+        throw new ConflictException('Ya eres miembro de este grupo');
       }
 
       const membership = await this.prisma.groupMember.create({
@@ -171,13 +171,15 @@ export class PairingService {
       });
 
       return {
-        message: 'Successfully joined group!',
+        message: '¡Te has unido al grupo exitosamente!',
         type: 'GROUP',
         membership,
       };
     }
 
-    throw new BadRequestException('Invalid pairing type configuration');
+    throw new BadRequestException(
+      'Configuración de tipo de emparejamiento inválida',
+    );
   }
 
   async listMyLinks(userId: string) {
@@ -232,7 +234,9 @@ export class PairingService {
     });
 
     if (!link || (link.userAId !== userId && link.userBId !== userId)) {
-      throw new NotFoundException('Couple link not found');
+      throw new NotFoundException(
+        'Link no encontrado o no perteneciente al usuario',
+      );
     }
 
     const updated = await this.prisma.coupleLink.update({
@@ -245,7 +249,7 @@ export class PairingService {
 
     return {
       message:
-        'Relationship archived. Historical memories and logs are frozen and preserved.',
+        'Relación archivada. Las memorias históricas y los registros están congelados y preservados.',
       link: updated,
     };
   }

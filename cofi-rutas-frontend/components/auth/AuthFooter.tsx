@@ -1,4 +1,5 @@
 import React from 'react';
+import { Mountain } from 'lucide-react';
 import type { AuthFooterProps } from '../../types/auth';
 
 export const AuthFooter: React.FC<AuthFooterProps> = ({ className = '' }) => {
@@ -22,10 +23,8 @@ export const AuthFooter: React.FC<AuthFooterProps> = ({ className = '' }) => {
         de CofiRutas Oruro.
       </p>
 
-      <div className="flex items-center justify-center gap-2 mt-2 opacity-70">
-        <span className="material-symbols-outlined text-[14px] text-espresso-ink">
-          altitude
-        </span>
+      <div className="flex items-center justify-center gap-1.5 mt-2 opacity-70">
+        <Mountain className="w-3.5 h-3.5 text-espresso-ink" strokeWidth={2.5} />
         <span className="font-[family-name:var(--font-space-grotesk)] text-[10px] font-bold uppercase tracking-wider text-espresso-ink">
           Oruro, Bolivia • Hecho con tueste artesanal
         </span>

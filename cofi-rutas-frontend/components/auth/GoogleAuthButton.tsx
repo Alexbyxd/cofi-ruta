@@ -1,4 +1,5 @@
 import React from 'react';
+import { ShieldCheck } from 'lucide-react';
 import type { GoogleAuthButtonProps } from '../../types/auth';
 
 export const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
@@ -37,9 +38,7 @@ export const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
       </button>
 
       <div className="flex items-center justify-center gap-1.5 text-on-surface-variant text-xs font-[family-name:var(--font-space-grotesk)] font-bold">
-        <span className="material-symbols-outlined text-[15px] text-badge-matcha">
-          verified_user
-        </span>
+        <ShieldCheck className="w-4 h-4 text-badge-matcha shrink-0" strokeWidth={2.5} />
         <span>Acceso rápido y sincronización con Pasaporte Oruro</span>
       </div>
     </div>

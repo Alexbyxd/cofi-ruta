@@ -15,7 +15,7 @@ async function bootstrap() {
 
   await app.listen(env.BACKEND_PORT);
   console.log(
-    `🚀 CofiRutas Backend running on http://localhost:${env.BACKEND_PORT}/api/v1`,
+    `🚀 CofiRutas Backend ejecutándose en http://localhost:${env.BACKEND_PORT}/api/v1`,
   );
 }
 

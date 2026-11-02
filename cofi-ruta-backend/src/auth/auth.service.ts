@@ -48,7 +48,7 @@ export class AuthService {
     });
 
     if (existing) {
-      throw new ConflictException('Email is already registered');
+      throw new ConflictException('El correo electrónico ya está registrado');
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);

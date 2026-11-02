@@ -1,4 +1,5 @@
 import React from 'react';
+import { CheckCheck, AlertTriangle, Info, X } from 'lucide-react';
 import type { AuthFeedbackProps } from '../../types/auth';
 
 export const AuthFeedback: React.FC<AuthFeedbackProps> = ({
@@ -16,7 +17,7 @@ export const AuthFeedback: React.FC<AuthFeedbackProps> = ({
     ? 'bg-error-container text-on-error-container'
     : 'bg-primary-container text-espresso-ink';
 
-  const iconName = isSuccess ? 'done_all' : isError ? 'warning' : 'info';
+  const FeedbackIcon = isSuccess ? CheckCheck : isError ? AlertTriangle : Info;
 
   return (
     <div
@@ -24,9 +25,7 @@ export const AuthFeedback: React.FC<AuthFeedbackProps> = ({
       className={`p-2.5 rounded-lg border-[2px] border-espresso-ink font-[family-name:var(--font-space-grotesk)] text-xs font-bold uppercase tracking-wide flex items-center justify-between gap-2 shadow-[2px_2px_0px_0px_#1A0F0A] ${containerClasses} w-full`}
     >
       <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-[18px] shrink-0">
-          {iconName}
-        </span>
+        <FeedbackIcon className="w-4 h-4 shrink-0" strokeWidth={2.5} />
         <span className="leading-snug">{feedback.message}</span>
       </div>
 
@@ -34,10 +33,10 @@ export const AuthFeedback: React.FC<AuthFeedbackProps> = ({
         <button
           type="button"
           onClick={onDismiss}
-          className="p-1 hover:opacity-75 cursor-pointer shrink-0"
+          className="p-1 hover:opacity-75 cursor-pointer shrink-0 flex items-center justify-center"
           aria-label="Cerrar notificación"
         >
-          <span className="material-symbols-outlined text-[16px]">close</span>
+          <X className="w-4 h-4" strokeWidth={2.5} />
         </button>
       )}
     </div>

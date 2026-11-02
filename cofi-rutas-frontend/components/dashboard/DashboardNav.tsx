@@ -17,6 +17,11 @@ export interface DashboardNavProps {
 export const DashboardNav: React.FC<DashboardNavProps> = ({
   items = [
     {
+      href: '/inicio',
+      label: 'Inicio',
+      icon: MapPin,
+    },
+    {
       href: '/explore',
       label: 'Explorar Cafeterías',
       icon: MapPin,

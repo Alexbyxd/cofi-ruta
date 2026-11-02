@@ -1,4 +1,5 @@
 import React from 'react';
+import { LogIn, UserPlus } from 'lucide-react';
 import type { AuthModeTabsProps } from '../../types/auth';
 
 export const AuthModeTabs: React.FC<AuthModeTabsProps> = ({
@@ -17,13 +18,13 @@ export const AuthModeTabs: React.FC<AuthModeTabsProps> = ({
         id="tab-login"
         aria-selected={mode === 'login'}
         onClick={() => onModeChange('login')}
-        className={`py-2.5 px-3 rounded font-[family-name:var(--font-space-grotesk)] text-xs font-bold uppercase tracking-wider transition-all duration-100 flex items-center justify-center gap-1.5 cursor-pointer ${
+        className={`py-2.5 px-3 rounded font-[family-name:var(--font-space-grotesk)] text-xs font-bold uppercase tracking-wider transition-all duration-100 flex items-center justify-center gap-2 cursor-pointer ${
           mode === 'login'
             ? 'bg-primary-container text-espresso-ink border-[2px] border-espresso-ink shadow-[2px_2px_0px_0px_#1A0F0A]'
             : 'bg-surface-card text-on-surface-variant border-[2px] border-transparent hover:text-espresso-ink'
         }`}
       >
-        <span className="material-symbols-outlined text-[16px]">login</span>
+        <LogIn className="w-4 h-4 shrink-0" strokeWidth={2.5} />
         <span>Iniciar Sesión</span>
       </button>
 
@@ -33,13 +34,13 @@ export const AuthModeTabs: React.FC<AuthModeTabsProps> = ({
         id="tab-register"
         aria-selected={mode === 'register'}
         onClick={() => onModeChange('register')}
-        className={`py-2.5 px-3 rounded font-[family-name:var(--font-space-grotesk)] text-xs font-bold uppercase tracking-wider transition-all duration-100 flex items-center justify-center gap-1.5 cursor-pointer ${
+        className={`py-2.5 px-3 rounded font-[family-name:var(--font-space-grotesk)] text-xs font-bold uppercase tracking-wider transition-all duration-100 flex items-center justify-center gap-2 cursor-pointer ${
           mode === 'register'
             ? 'bg-primary-container text-espresso-ink border-[2px] border-espresso-ink shadow-[2px_2px_0px_0px_#1A0F0A]'
             : 'bg-surface-card text-on-surface-variant border-[2px] border-transparent hover:text-espresso-ink'
         }`}
       >
-        <span className="material-symbols-outlined text-[16px]">person_add</span>
+        <UserPlus className="w-4 h-4 shrink-0" strokeWidth={2.5} />
         <span>Crear Cuenta</span>
       </button>
     </div>

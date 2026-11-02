@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const createPairingTokenSchema = z.object({
   type: z.enum(['DUO', 'GROUP']).default('DUO'),
-  groupId: z.string().uuid().optional(),
+  groupId: z.uuid().optional(),
 });
 
 export type CreatePairingTokenDto = z.infer<typeof createPairingTokenSchema>;

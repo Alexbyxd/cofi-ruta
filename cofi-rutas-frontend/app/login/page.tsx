@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { useAuthForm } from '../../hooks/useAuthForm';
 import {
   AuthHeader,
@@ -36,8 +38,19 @@ export default function LoginPage() {
   } = useAuthForm();
 
   return (
-    <main className="min-h-screen bg-surface flex flex-col justify-start items-center pt-8 sm:pt-12 pb-12 px-4 sm:px-6 text-espresso-ink">
+    <main className="min-h-screen bg-surface flex flex-col justify-start items-center pt-6 sm:pt-10 pb-12 px-4 sm:px-6 text-espresso-ink">
       <div className="w-full max-w-md flex flex-col gap-4 sm:gap-5">
+        {/* Navigation Return Link */}
+        <div className="w-full flex items-center justify-start">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 font-[family-name:var(--font-space-grotesk)] text-xs font-bold uppercase tracking-wider text-espresso-ink/70 hover:text-espresso-ink transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" strokeWidth={2.5} />
+            <span>Volver al inicio</span>
+          </Link>
+        </div>
+
         {/* Brand Stamp & Altitude Header */}
         <AuthHeader altitudeMeters={3735} editionBadge="COFIRUTAS • ORURO" />
 

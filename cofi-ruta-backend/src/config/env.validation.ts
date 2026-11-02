@@ -11,17 +11,25 @@ export const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
     .default('development'),
-  BACKEND_PORT: z.coerce.number().default(3001),
-  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
-  FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+  BACKEND_PORT: z.coerce
+    .number('BACKEND PORT debe ser un número')
+    .default(3001),
+  DATABASE_URL: z.string().min(1, 'DATABASE_URL es requerida'),
+  FRONTEND_URL: z
+    .url('FRONTEND_URL debe ser una URL válida')
+    .default('http://localhost:3000'),
   JWT_ACCESS_SECRET: z
     .string()
-    .min(8, 'JWT_ACCESS_SECRET must be at least 8 characters'),
-  JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
+    .min(8, 'JWT_ACCESS_SECRET debe tener al menos 8 caracteres'),
+  JWT_ACCESS_EXPIRES_IN: z
+    .string('JWT_ACCESS_EXPIRES_IN debe ser una cadena')
+    .default('15m'),
   JWT_REFRESH_SECRET: z
     .string()
-    .min(8, 'JWT_REFRESH_SECRET must be at least 8 characters'),
-  JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
+    .min(8, 'JWT_REFRESH_SECRET debe tener al menos 8 caracteres'),
+  JWT_REFRESH_EXPIRES_IN: z
+    .string('JWT_REFRESH_EXPIRES_IN debe ser una cadena')
+    .default('7d'),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_CALLBACK_URL: z.string().optional(),
@@ -39,7 +47,7 @@ export function validateEnv(
       .map((issue) => `  - [${issue.path.join('.')}]: ${issue.message}`)
       .join('\n');
     throw new Error(
-      `\n❌ Environment variable validation failed:\n${errorMessages}\n`,
+      `\n❌ Las variables de entorno no son válidas:\n${errorMessages}\n`,
     );
   }
 

@@ -24,3 +24,5 @@ T9: Verificar builds y suites de pruebas — S9
 
 ## Log
 L1: Usuario solicita dashboard principal tras login con Google, nombre "Inicio - CofiRutas Dashboard", proyecto "CofiRutas Coffee Brutalism UI", componentes tipados, backend con tests, JWT y avatarUrl de Google.
+L2: Commit 2e56afb feat(auth): dashboard 'Inicio - CofiRutas Dashboard' tras login con Google — 11 archivos, 562 inserciones.
+L3: Todas las suites pasan: backend jest 40 tests, frontend vitest 22 tests, next build y nest build limpios. Nueva ruta /dashboard registrada en el build.

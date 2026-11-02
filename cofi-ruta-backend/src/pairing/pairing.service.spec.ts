@@ -142,7 +142,7 @@ describe('PairingService', () => {
       });
 
       const result = await service.archiveLink('user-1', 'link-1');
-      expect(result.message).toContain('archived');
+      expect(result.message).toContain('Relación archivada');
       expect(result.link.status).toBe('ARCHIVED');
     });
   });

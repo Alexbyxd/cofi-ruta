@@ -34,7 +34,7 @@ export default function AuthCallbackPage() {
       }
     }
 
-    router.push('/dashboard');
+    router.push('/inicio');
   }, [router]);
 
   return null;
