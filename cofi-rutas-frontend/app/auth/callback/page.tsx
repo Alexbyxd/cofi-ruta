@@ -7,7 +7,7 @@ import { authService } from '@/services/auth.service';
 // Página de callback del flujo OAuth2 de Google.
 // El backend (GET /auth/google/callback) renderiza un HTML que guarda los
 // tokens en sessionStorage y redirige acá. Esta página los lee, guarda la
-// sesión en localStorage y redirige al home.
+// sesión en localStorage y redirige al dashboard.
 export default function AuthCallbackPage() {
   const router = useRouter();
 
@@ -34,7 +34,7 @@ export default function AuthCallbackPage() {
       }
     }
 
-    router.push('/');
+    router.push('/dashboard');
   }, [router]);
 
   return null;

@@ -29,6 +29,10 @@ describe('AuthService', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
       },
+      account: {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+      },
       session: {
         create: jest.fn(),
         findFirst: jest.fn(),
@@ -174,6 +178,106 @@ describe('AuthService', () => {
       expect(result.accessToken).toBeDefined();
       expect(result.refreshToken).toBeDefined();
       expect(prisma.session.update).toHaveBeenCalled();
+    });
+  });
+
+  describe('googleLogin', () => {
+    it('should return user with google avatarUrl and JWT tokens', async () => {
+      prisma.account.findUnique.mockResolvedValue(null);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({
+        id: 'u-google',
+        email: 'carlos@cofi.com',
+        fullName: 'Carlos Morales',
+        avatarUrl: 'https://lh3.googleusercontent.com/a/carlos',
+        role: 'USER',
+        createdAt: new Date(),
+      });
+      prisma.account.create.mockResolvedValue({ id: 'acct-1' });
+      prisma.session.create.mockResolvedValue({ id: 's-google' });
+
+      const result = await service.googleLogin({
+        googleId: 'google-123',
+        email: 'carlos@cofi.com',
+        fullName: 'Carlos Morales',
+        avatarUrl: 'https://lh3.googleusercontent.com/a/carlos',
+      });
+
+      expect(result.user.id).toBe('u-google');
+      expect(result.user.avatarUrl).toBe(
+        'https://lh3.googleusercontent.com/a/carlos',
+      );
+      expect(result.accessToken).toBeDefined();
+      expect(result.refreshToken).toBeDefined();
+      expect(prisma.account.create).toHaveBeenCalledWith({
+        data: {
+          userId: 'u-google',
+          provider: 'google',
+          providerAccountId: 'google-123',
+        },
+      });
+    });
+
+    it('should link existing google account and return its avatarUrl', async () => {
+      prisma.account.findUnique.mockResolvedValue({
+        id: 'acct-1',
+        userId: 'u-google',
+        user: {
+          id: 'u-google',
+          email: 'carlos@cofi.com',
+          fullName: 'Carlos Morales',
+          avatarUrl: 'https://lh3.googleusercontent.com/a/carlos',
+          role: 'USER',
+          createdAt: new Date(),
+        },
+      });
+      prisma.session.create.mockResolvedValue({ id: 's-google' });
+
+      const result = await service.googleLogin({
+        googleId: 'google-123',
+        email: 'carlos@cofi.com',
+        fullName: 'Carlos Morales',
+        avatarUrl: 'https://lh3.googleusercontent.com/a/carlos',
+      });
+
+      expect(result.user.id).toBe('u-google');
+      expect(result.user.avatarUrl).toBe(
+        'https://lh3.googleusercontent.com/a/carlos',
+      );
+      expect(result.accessToken).toBeDefined();
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getProfile', () => {
+    it('should return user profile including avatarUrl', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        email: 'user@cofi.com',
+        fullName: 'Profile User',
+        avatarUrl: 'https://lh3.googleusercontent.com/a/user',
+        role: 'USER',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        accounts: [],
+        duoAsUserA: [],
+        duoAsUserB: [],
+      });
+
+      const profile = await service.getProfile('u1');
+      expect(profile.id).toBe('u1');
+      expect(profile.avatarUrl).toBe(
+        'https://lh3.googleusercontent.com/a/user',
+      );
+      expect(profile.fullName).toBe('Profile User');
+    });
+
+    it('should throw NotFoundException if user not found', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getProfile('non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
