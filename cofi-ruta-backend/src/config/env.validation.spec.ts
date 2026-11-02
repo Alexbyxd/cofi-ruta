@@ -22,7 +22,7 @@ describe('validateEnv', () => {
     };
 
     expect(() => validateEnv(invalidConfig)).toThrow(
-      'Environment variable validation failed',
+      'Las variables de entorno no son válidas',
     );
   });
 });

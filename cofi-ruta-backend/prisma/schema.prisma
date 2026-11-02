@@ -119,3 +119,43 @@ model GroupMember {
 
   @@unique([groupId, userId])
 }
+
+model CoffeeShop {
+  id            String   @id @default(uuid())
+  name          String
+  slug          String   @unique
+  description   String?
+  address       String?
+  neighborhood  String?
+  distanceMeters Int?
+  rating        Decimal? @db.Decimal(3, 2)
+  reviewCount   Int      @default(0)
+  imageUrl      String?
+  isOpen        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  products      Product[]
+
+  @@index([slug])
+  @@index([neighborhood])
+  @@index([isOpen])
+}
+
+model Product {
+  id           String   @id @default(uuid())
+  coffeeShopId String
+  name         String
+  description  String?
+  price        Decimal  @db.Decimal(10, 2)
+  currency     String   @default("BOB")
+  imageUrl     String?
+  isAvailable  Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  coffeeShop   CoffeeShop @relation(fields: [coffeeShopId], references: [id], onDelete: Cascade)
+
+  @@index([coffeeShopId])
+  @@index([isAvailable])
+}

@@ -3,3 +3,4 @@ allowBuilds:
   'esbuild': true
   'prisma': true
   '@prisma/engines': true
+  'bcrypt': true
