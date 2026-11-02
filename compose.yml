@@ -1,0 +1,70 @@
+name: cofi-rutas
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cofi_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cofi_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cofi_password}
+      POSTGRES_DB: ${POSTGRES_DB:-cofi_rutas_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cofi_user} -d ${POSTGRES_DB:-cofi_rutas_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cofi_network
+
+  backend:
+    build:
+      context: ./cofi-ruta-backend
+      dockerfile: Dockerfile.dev
+    container_name: cofi_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cofi_user}:${POSTGRES_PASSWORD:-cofi_password}@postgres:5432/${POSTGRES_DB:-cofi_rutas_db}?schema=public
+    ports:
+      - "${BACKEND_PORT:-3001}:3001"
+    volumes:
+      - ./cofi-ruta-backend:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cofi_network
+
+  frontend:
+    build:
+      context: ./cofi-rutas-frontend
+      dockerfile: Dockerfile.dev
+    container_name: cofi_frontend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - ./cofi-rutas-frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - cofi_network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  cofi_network:
+    driver: bridge

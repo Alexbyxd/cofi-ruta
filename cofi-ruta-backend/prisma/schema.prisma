@@ -1,0 +1,121 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  MERCHANT
+  SUPERADMIN
+}
+
+enum RelationshipStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum PairingType {
+  DUO
+  GROUP
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String?
+  fullName      String
+  avatarUrl     String?
+  role          Role           @default(USER)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  pairingTokens PairingToken[]
+  duoAsUserA    CoupleLink[]   @relation("UserA")
+  duoAsUserB    CoupleLink[]   @relation("UserB")
+  groupMembers  GroupMember[]
+}
+
+model Account {
+  id                String   @id @default(uuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  createdAt         DateTime @default(now())
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PairingToken {
+  id        String      @id @default(uuid())
+  creatorId String
+  token     String      @unique
+  type      PairingType @default(DUO)
+  groupId   String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime    @default(now())
+
+  creator   User        @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([creatorId])
+}
+
+model CoupleLink {
+  id         String             @id @default(uuid())
+  userAId    String
+  userBId    String
+  status     RelationshipStatus @default(ACTIVE)
+  startedAt  DateTime           @default(now())
+  archivedAt DateTime?
+
+  userA      User               @relation("UserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB      User               @relation("UserB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+}
+
+model GroupRoom {
+  id        String        @id @default(uuid())
+  name      String
+  code      String        @unique
+  createdAt DateTime      @default(now())
+  members   GroupMember[]
+}
+
+model GroupMember {
+  id       String    @id @default(uuid())
+  groupId  String
+  userId   String
+  joinedAt DateTime  @default(now())
+
+  group    GroupRoom @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+}
