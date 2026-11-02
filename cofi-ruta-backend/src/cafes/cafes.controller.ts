@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  Param,
-  UseGuards,
-  NotFoundException,
-} from '@nestjs/common';
+import { Controller, Get, Query, Param } from '@nestjs/common';
 import { CafesService } from './cafes.service';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import {
@@ -19,7 +12,6 @@ import type {
   ListCafesResponseDto,
   CoffeeShopDetailDto,
 } from './dto/cafes.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('cafes')
 export class CafesController {

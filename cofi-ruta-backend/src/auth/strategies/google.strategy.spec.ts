@@ -1,4 +1,4 @@
-import { GoogleStrategy } from './google.strategy';
+import { GoogleStrategy, GoogleOAuthProfile } from './google.strategy';
 import { AuthService } from '../auth.service';
 
 // Mock de passport-google-oauth20 sin invocar el constructor real de Strategy.
@@ -24,12 +24,12 @@ describe('GoogleStrategy', () => {
   });
 
   describe('validate', () => {
-    const profile = {
+    const profile: GoogleOAuthProfile = {
       id: 'google-123',
       emails: [{ value: 'carlos@cofi.com' }],
       displayName: 'Carlos Morales',
       photos: [{ value: 'https://example.com/avatar.jpg' }],
-    } as any;
+    };
 
     it('should call authService.googleLogin and pass result to done', async () => {
       const expectedResult = {

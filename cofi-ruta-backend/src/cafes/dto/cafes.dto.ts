@@ -11,11 +11,15 @@ export const listCafesQuerySchema = z
     limit: z
       .string()
       .optional()
-      .transform((val) => (val === undefined ? undefined : parseInt(val, 10) || 20)),
+      .transform((val) =>
+        val === undefined ? undefined : parseInt(val, 10) || 20,
+      ),
     offset: z
       .string()
       .optional()
-      .transform((val) => (val === undefined ? undefined : parseInt(val, 10) || 0)),
+      .transform((val) =>
+        val === undefined ? undefined : parseInt(val, 10) || 0,
+      ),
   })
   .strict();
 

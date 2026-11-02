@@ -10,7 +10,7 @@ export interface GoogleProfile {
   avatarUrl?: string;
 }
 
-interface GoogleOAuthProfile {
+export interface GoogleOAuthProfile {
   id: string;
   emails?: { value: string }[];
   displayName?: string;
