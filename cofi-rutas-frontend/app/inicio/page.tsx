@@ -1,161 +1,177 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   AppHeader,
-  ClimateBanner,
-  DuoHero,
-  QuickActions,
-  AnchoDelDia,
-  PasaporteSellos,
-  ComunidadEnVivo,
   AppFooter,
 } from '@/components/inicio';
 import {
-  SearchBar,
-  FilterChip,
+  HeroSection,
+  DuoHero,
+  QuickActions,
+  SearchFilters,
+  AntojoDelDia,
   CafeFeed,
-} from '@/components/cafes';
-import { cafesService } from '@/services/cafes.service';
-import { DEFAULT_CAFE_FILTER_CHIPS } from '@/types/cafes';
-import type { CoffeeShopWithProducts } from '@/types/cafes';
-import { Flame } from 'lucide-react';
+  PasaporteSellos,
+  ComunidadEnVivo,
+} from '@/components/inicio/shared';
+import { DesktopLayout } from '@/components/inicio/desktop/DesktopLayout';
+import { useInicioData } from '@/hooks/useInicioData';
+import { useCofiDuo } from '@/hooks/useCofiDuo';
+import { useComunidadData } from '@/hooks/useComunidadData';
+import { usePasaporte } from '@/hooks/usePasaporte';
 
 /**
- * Página "Inicio" de CofiRutas rediseñada sobre el diseño de inicio.html.
+ * Página "Inicio" de CofiRutas - Responsive con hooks compartidos.
  *
- * Pantalla principal neobrutalista para la app móvil de Oruro:
- *  - Cabecera fija con logo, badge Oruro 3735M y modo CofiDúo (Carlos & Laura).
- *  - Banner de clima del Altiplano.
- *  - Hero del modo CofiDúo con progreso del Pasaporte Dúo.
- *  - Hub de acciones rápidas (Matcher, Rutas, PIN, Diario Dúo).
- *  - Buscador de Antojos + filtros por chips + feed de cafeterías.
- *  - Antojo del Día (primer café del feed destacado).
- *  - Pasaporte Cafetero con sellos recientes.
- *  - Actividad comunitaria en vivo.
- *  - Navegación inferior fija (Inicio, Explorar, Matcher, Check-In, Dúo).
+ * Mobile/Tablet (<1024px lg): Vertical stack con componentes shared (variant="mobile")
+ * Desktop (>=1024px lg): Layout asimétrico 2-columnas (60/40) con DesktopLayout
+ *
+ * Breakpoints:
+ * - Mobile: <768px (md)
+ * - Tablet: 768px - 1023px (md-lg)
+ * - Desktop: >=1024px (lg)
  */
 export default function InicioPage() {
-  const [cafes, setCafes] = useState<CoffeeShopWithProducts[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  const loadCafes = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await cafesService.listCafes({
-        neighborhood: activeFilter || undefined,
-        search: searchQuery || undefined,
-      });
-      setCafes(response.cafes);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'No se pudieron cargar las cafeterías.',
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [activeFilter, searchQuery]);
+  // Shared hooks - single source of truth for all logic
+  const {
+    cafes,
+    featuredCafe,
+    loading,
+    error,
+    activeFilter,
+    searchQuery,
+    handleSearch,
+    handleFilter,
+    handleLoadMore,
+    hasMore,
+  } = useInicioData({ loadOnMount: !isDesktop }); // Don't load on mount for desktop (handled by DesktopLayout)
 
+  const {
+    streakWeeks,
+    currentStamps,
+    targetStamps,
+    nextReward,
+    sharedTastes,
+    duoNames,
+    duoDay,
+  } = useCofiDuo();
+
+  const {
+    stats,
+  } = useComunidadData();
+
+  const {
+    stamps,
+    completedStamps,
+    totalStamps,
+    progress: pasaporteProgress,
+    nextReward: pasaporteNextReward,
+    altitudeTip,
+  } = usePasaporte();
+
+  // Detect desktop breakpoint on mount and resize
   useEffect(() => {
-    (async () => {
-      await loadCafes();
-    })();
-  }, [loadCafes]);
-
-  const handleSearch = useCallback((query: string) => {
-    setSearchQuery(query);
+    setMounted(true);
+    const checkDesktop = () => {
+      const desktop = window.innerWidth >= 1024; // lg breakpoint
+      setIsDesktop(desktop);
+    };
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
   }, []);
 
-  const handleFilter = useCallback((value: string) => {
-    setActiveFilter(value === activeFilter ? null : value);
-  }, [activeFilter]);
+  // Don't render until mounted to avoid hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-[#FAF4EC]">
+        <div className="fixed top-0 w-full h-20 bg-[#FAF4EC]/95 backdrop-blur-xl border-b-[3px] border-espresso-ink" />
+        <main className="pt-20 pb-28 px-4" />
+      </div>
+    );
+  }
 
-  const featuredCafe = cafes.length > 0 ? cafes[0] : undefined;
-
-  const isCofiDuoActive = true;
+  const featuredCafeTyped = featuredCafe as import('@/types/cafes').CoffeeShopWithProducts | undefined;
 
   return (
     <div className="min-h-screen bg-[#FAF4EC] flex flex-col text-espresso-ink antialiased selection:bg-[#E59840] selection:text-espresso-ink">
-      {/* Cabecera fija */}
-      <AppHeader />
+      {/* ===== DESKTOP LAYOUT (lg: >=1024px) ===== */}
+      <DesktopLayout className="hidden lg:block" />
 
-      <main className="flex flex-col relative w-full pt-20 pb-28 bg-[#FAF4EC]">
-        <div className="flex flex-col w-full px-4 pb-8 space-y-5">
-          {/* 1. Saludo y clima del Altiplano */}
-          <div className="flex flex-col gap-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex flex-col">
-                <span className="font-[family-name:var(--font-space-grotesk)] text-[12px] uppercase tracking-widest text-[#795741] font-bold">
-                  Sesión en Pareja • Oruro
-                </span>
-                <h1 className="font-[family-name:var(--font-space-grotesk)] text-[28px] uppercase text-espresso-ink leading-tight tracking-tight">
-                  ¡Buenas tardes, Carlos & Laura! ☕
-                </h1>
-              </div>
-              <div className="shrink-0 p-2.5 bg-[#E59840] rounded-lg border-[3px] border-espresso-ink shadow-[3px_3px_0px_0px_#1A0F0A] rotate-3 hover:rotate-0 transition-transform">
-                <Flame className="w-6 h-6" />
-              </div>
-            </div>
-            <ClimateBanner />
-          </div>
+      {/* ===== MOBILE/TABLET LAYOUT (<1024px) ===== */}
+      <div className="lg:hidden">
+        {/* Cabecera fija móvil */}
+        <AppHeader />
 
-          {/* 2. Hero CofiDúo */}
-          {isCofiDuoActive && <DuoHero />}
+        <main className="flex flex-col relative w-full pt-20 pb-28 bg-[#FAF4EC]">
+          <div className="flex flex-col w-full px-4 pb-8 space-y-5">
+            {/* 1. Hero Section: Saludo + Clima */}
+            <HeroSection variant="mobile" duoNames={duoNames} />
 
-          {/* 3. Acciones rápidas */}
-          <QuickActions />
-
-          {/* 4. Buscador de Antojos */}
-          <section className="w-full">
-            <SearchBar
-              placeholder="¿Qué café o postre se te antoja hoy? (ej. Submarino, Waffle...)"
-              onSearch={handleSearch}
-              className="max-w-md sm:max-w-lg"
+            {/* 2. Hero CofiDúo */}
+            <DuoHero
+              variant="mobile"
+              streakWeeks={streakWeeks}
+              currentStamps={currentStamps}
+              targetStamps={targetStamps}
+              nextReward={nextReward}
+              sharedTastes={sharedTastes}
+              duoNames={duoNames}
+              duoDay={duoDay}
             />
-          </section>
 
-          {/* 5. Filtros por chips */}
-          <section className="w-full pb-4">
-            <div className="flex flex-wrap gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              {DEFAULT_CAFE_FILTER_CHIPS.map((chip) => (
-                <FilterChip
-                  key={chip.value}
-                  chip={chip}
-                  active={activeFilter === chip.value}
-                  onSelect={handleFilter}
-                />
-              ))}
-            </div>
-          </section>
+            {/* 3. Acciones rápidas */}
+            <QuickActions variant="mobile" />
 
-          {/* 6. Antojo del Día (destacado) */}
-          {featuredCafe && <AnchoDelDia cafe={featuredCafe} />}
+            {/* 4. Buscador de Antojos + Filtros */}
+            <SearchFilters
+              variant="mobile"
+              onSearch={handleSearch}
+              onFilter={handleFilter}
+              activeFilter={activeFilter}
+              searchQuery={searchQuery}
+            />
 
-          {/* 7. Pasaporte Cafetero */}
-          <PasaporteSellos />
+            {/* 5. Antojo del Día (destacado) */}
+            {featuredCafeTyped && <AntojoDelDia variant="mobile" cafe={featuredCafeTyped} />}
 
-          {/* 8. Comunidad en vivo */}
-          <ComunidadEnVivo />
+            {/* 6. Pasaporte Cafetero */}
+            <PasaporteSellos
+              variant="mobile"
+              stamps={stamps}
+              completedStamps={completedStamps}
+              totalStamps={totalStamps}
+              progress={pasaporteProgress}
+              nextReward={pasaporteNextReward}
+              altitudeTip={altitudeTip}
+            />
 
-          {error && (
-            <div className="bg-[#FFDAD6] text-[#93000A] brutal-border rounded-lg p-4 mb-6 font-[family-name:var(--font-dm-sans)] text-sm font-medium">
-              {error}
-            </div>
-          )}
-          <CafeFeed
-            cafes={cafes}
-            loading={loading}
-            emptyMessage="No se encontraron cafeterías con esos filtros. Probá otro antojo."
-          />
-        </div>
-      </main>
+            {/* 7. Comunidad en vivo */}
+            <ComunidadEnVivo variant="mobile" stats={stats} />
 
-      {/* Navegación inferior fija */}
-      <AppFooter />
+            {error && (
+              <div className="bg-[#FFDAD6] text-[#93000A] brutal-border rounded-lg p-4 mb-6 font-[family-name:var(--font-dm-sans)] text-sm font-medium">
+                {error}
+              </div>
+            )}
+            <CafeFeed
+              variant="mobile"
+              cafes={cafes}
+              loading={loading}
+              emptyMessage="No se encontraron cafeterías con esos filtros. Probá otro antojo."
+              onLoadMore={handleLoadMore}
+              hasMore={hasMore}
+            />
+          </div>
+        </main>
+
+        {/* Navegación inferior fija móvil */}
+        <AppFooter />
+      </div>
     </div>
   );
 }

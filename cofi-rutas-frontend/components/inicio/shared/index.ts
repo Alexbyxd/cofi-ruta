@@ -1,0 +1,9 @@
+export { HeroSection } from './HeroSection';
+export { DuoHero } from './DuoHero';
+export { QuickActions } from './QuickActions';
+export { SearchFilters } from './SearchFilters';
+export { AntojoDelDia } from './AntojoDelDia';
+export { CafeFeed } from './CafeFeed';
+export { PasaporteSellos } from './PasaporteSellos';
+export { ComunidadEnVivo } from './ComunidadEnVivo';
+export { DuoChallenge } from './DuoChallenge';
