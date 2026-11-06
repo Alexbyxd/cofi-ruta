@@ -84,7 +84,7 @@ S12 — Fuera de alcance
 | U4 | Auth core (refresh opaco, sesiones, /me) | S6 | inline | hecho |
 | U5 | Guards de rol y merchant | S7 | inline | hecho |
 | U6 | Dúo (tokens hasheados, vínculo canónico) | S8 | inline | hecho |
-| U7 | Grupos (código, lobby, expiración) | S9 | inline | pendiente |
+| U7 | Grupos (código, lobby, expiración) | S9 | inline | hecho |
 | U8 | Catálogo público v2 | S10 | inline | pendiente |
 | U9 | Gate final, smoke y cierre documental | S11 | inline | pendiente |
 
@@ -109,3 +109,5 @@ L8: U4 hecho. `AuthService` con refresh opaco de 32 bytes (SHA-256 en `Session.t
 L9: U5 hecho. `RolesGuard` + `@Roles(...)` valida el rol global del `User` autenticado. `MerchantGuard` + `@MerchantRoles(...)` resuelve el local solo desde `params.id`/`params.coffeeShopId`, consulta `MerchantStaff` y aplica la jerarquía `OWNER > MANAGER > STAFF`; un `SUPERADMIN` sin fila de staff no pasa. Errores `FORBIDDEN` y `MERCHANT_ACCESS_DENIED`. Ambos guards quedaron registrados y exportados en `AuthModule`. RED: `Cannot find module './merchant.guard'`/`'./roles.guard'`; GREEN: 18/18 tests de guards; unit total 66/66.
 
 L10: U6 hecho. `PairingService` emite tokens opacos de 32 bytes base64url con TTL de 15 min, guarda solo `tokenHash` SHA-256 y `tokenPrefix`, y devuelve el token plano una única vez con QR `cofirutas://pair?token=<token>`. El claim corre en transacción, consume el token con `updateMany` condicional (idempotencia ante carreras), rechaza auto-invitación, tokens consumidos/revocados/vencidos y cualquier cuenta con vínculo `ACTIVE`, ordena el par canónicamente y crea un vínculo nuevo (nunca reactiva uno archivado). `GET /pairing/duo` devuelve la pareja con datos públicos y `DELETE /pairing/duo` archiva. `DELETE /pairing/tokens/:id` revoca. El claim de tokens `GROUP` valida sala abierta/vigente/no llena y crea membresía. RED: métodos `createToken`/`claimToken`/`getDuo`/`archiveDuo` inexistentes; GREEN: 9/9 DB y 10/10 unit de pairing.
+
+L11: U7 hecho. Nuevo `GroupsModule`: `POST /groups` genera código único de 6 caracteres con alfabeto sin `0/O/1/I` (reintenta ante colisión), `maxMembers` 2–12 (default 12), expiración 1–24 h (default 24 h) y crea al host como `HOST` en transacción. `POST /groups/join` acepta `code` o `PairingToken` GROUP, normaliza el código a mayúsculas y valida sala `OPEN`, vigente, no llena y no miembro; el token reutiliza el claim transaccional de U6. `GET /groups/:id` solo miembros, `GET /groups/me`, `POST /groups/:id/leave` (el host cierra la sala), `POST /groups/:id/close` solo host y `POST /groups/:id/invites`. RED: `Cannot find module '../../src/groups/groups.service'`; GREEN: 9/9 DB y 7/7 unit de grupos.
