@@ -183,7 +183,7 @@ La versión 2.0.0 parte de una decisión estructural: **la base de datos es la f
 
 | Modelo | Propósito | Campos y relaciones clave | Reglas |
 |---|---|---|---|
-| `CoupleLink` | Vínculo 1:1 de pareja | `userAId`, `userBId`, `status`, `startedAt`, `archivedAt?` | Orden canónico `userAId < userBId`; único `(userAId, userBId)`; un solo `ACTIVE` por usuario (índice único parcial en SQL) |
+| `CoupleLink` | Vínculo 1:1 de pareja | `userAId`, `userBId`, `status`, `startedAt`, `archivedAt?` | Orden canónico `userAId < userBId`; un solo `ACTIVE` por usuario (índices únicos parciales en SQL). El mismo par puede tener varios vínculos `ARCHIVED` y crear uno nuevo al volver |
 | `GroupRoom` | Sala temporal de grupo | `name`, `code` único, `hostId`, `status`, `maxMembers` 12, `expiresAt`, `closedAt?`, `createdAt` | `status`: `OPEN`/`CLOSED`/`EXPIRED`; expira por defecto a las 24 h |
 | `GroupMember` | Pertenencia a sala | `groupId`, `userId`, `role` (`HOST`/`MEMBER`), `joinedAt`, `leftAt?` | Único `(groupId, userId)`; salir es lógico (`leftAt`) |
 | `PairingToken` | Token de invitación QR | `creatorId`, `tokenHash` único, `tokenPrefix`, `type` (`DUO`/`GROUP`), `groupId?`, `expiresAt`, `consumedById?`, `consumedAt?`, `revokedAt?`, `createdAt` | Se guarda hash, no el token plano; un solo consumo; expiración y revocación |
@@ -251,7 +251,7 @@ Prisma no expresa todos los constraints. La migración inicial incluye SQL crudo
 7. `CHECK` de orden canónico en `CoupleLink`: `userAId < userBId`.
 8. Índices únicos parciales:
    - un `CoupleLink` `ACTIVE` por usuario (dos índices: `userAId` y `userBId` con `WHERE status = 'ACTIVE'`);
-   - una reseña de pareja `PUBLISHED` por `(coupleLinkId, coffeeShopId)`;
+   - una reseña de pareja no borrada (`status <> 'DELETED'`) por `(coupleLinkId, coffeeShopId)`;
    - una sesión `WAITING`/`ACTIVE` por `coupleLinkId` y por `groupId` (`WHERE status IN ('WAITING','ACTIVE')` y columna no nula).
 9. Índices GIN de búsqueda:
    - `to_tsvector('spanish', cofi_unaccent(name || ' ' || coalesce(description, '')))` en `MenuItem`;
