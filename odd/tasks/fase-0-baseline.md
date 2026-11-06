@@ -83,7 +83,7 @@ S12 — Fuera de alcance
 | U3 | Seed idempotente con datos de Oruro | S5 | inline | hecho |
 | U4 | Auth core (refresh opaco, sesiones, /me) | S6 | inline | hecho |
 | U5 | Guards de rol y merchant | S7 | inline | hecho |
-| U6 | Dúo (tokens hasheados, vínculo canónico) | S8 | inline | pendiente |
+| U6 | Dúo (tokens hasheados, vínculo canónico) | S8 | inline | hecho |
 | U7 | Grupos (código, lobby, expiración) | S9 | inline | pendiente |
 | U8 | Catálogo público v2 | S10 | inline | pendiente |
 | U9 | Gate final, smoke y cierre documental | S11 | inline | pendiente |
@@ -107,3 +107,5 @@ L7: U3 hecho. Investigación con Restaurants10 (DuckDuckGo HTML como índice): 2
 L8: U4 hecho. `AuthService` con refresh opaco de 32 bytes (SHA-256 en `Session.tokenHash`), rotación por refresh, sesiones revocables, cambio de password que revoca las demás, `getMe` con vínculos activos y membresías de comercio, y Google solo con correo verificado. `JwtStrategy` exige `sid` con sesión vigente y `User.isActive`. Endpoints: `auth/*`, `GET/PATCH /me`, `PATCH /me/password`, `GET /me/sessions`, `DELETE /me/sessions/:id`; `GET /auth/profile` queda como alias. RED: el spec DB de auth no compilaba (servicio y estrategia viejos); GREEN: 11/11 DB y 32/32 unit de auth. Suite completa 48 unit + 24 DB. Nota técnica: `@nestjs/jwt` y `@nestjs/passport` v12 son ESM-only; el spec DB los mockea para metadata de DI y firma/verifica JWT HS256 con `node:crypto`.
 
 L9: U5 hecho. `RolesGuard` + `@Roles(...)` valida el rol global del `User` autenticado. `MerchantGuard` + `@MerchantRoles(...)` resuelve el local solo desde `params.id`/`params.coffeeShopId`, consulta `MerchantStaff` y aplica la jerarquía `OWNER > MANAGER > STAFF`; un `SUPERADMIN` sin fila de staff no pasa. Errores `FORBIDDEN` y `MERCHANT_ACCESS_DENIED`. Ambos guards quedaron registrados y exportados en `AuthModule`. RED: `Cannot find module './merchant.guard'`/`'./roles.guard'`; GREEN: 18/18 tests de guards; unit total 66/66.
+
+L10: U6 hecho. `PairingService` emite tokens opacos de 32 bytes base64url con TTL de 15 min, guarda solo `tokenHash` SHA-256 y `tokenPrefix`, y devuelve el token plano una única vez con QR `cofirutas://pair?token=<token>`. El claim corre en transacción, consume el token con `updateMany` condicional (idempotencia ante carreras), rechaza auto-invitación, tokens consumidos/revocados/vencidos y cualquier cuenta con vínculo `ACTIVE`, ordena el par canónicamente y crea un vínculo nuevo (nunca reactiva uno archivado). `GET /pairing/duo` devuelve la pareja con datos públicos y `DELETE /pairing/duo` archiva. `DELETE /pairing/tokens/:id` revoca. El claim de tokens `GROUP` valida sala abierta/vigente/no llena y crea membresía. RED: métodos `createToken`/`claimToken`/`getDuo`/`archiveDuo` inexistentes; GREEN: 9/9 DB y 10/10 unit de pairing.

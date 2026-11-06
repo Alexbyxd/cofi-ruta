@@ -1,256 +1,336 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-  ConflictException,
-} from '@nestjs/common';
-import * as crypto from 'crypto';
+import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import * as crypto from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatePairingTokenDto } from './dto/pairing.dto';
+import type { CreatePairingTokenDto } from './dto/pairing.dto';
+import { pairingErrors } from './pairing.errors';
+
+const TOKEN_TTL_MS = 15 * 60 * 1000;
+
+const publicUserSelect = {
+  id: true,
+  fullName: true,
+  avatarUrl: true,
+  email: true,
+} satisfies Prisma.UserSelect;
+
+type PublicUser = Prisma.UserGetPayload<{ select: typeof publicUserSelect }>;
+
+type PairingTokenRow = Prisma.PairingTokenGetPayload<object>;
+
+export interface DuoView {
+  id: string;
+  status: string;
+  startedAt: Date;
+  partner: PublicUser;
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  );
+}
 
 @Injectable()
 export class PairingService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private generateToken(): string {
-    return 'COFI-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+  private hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
   }
 
-  async createPairingToken(creatorId: string, dto: CreatePairingTokenDto) {
-    const token = this.generateToken();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes TTL
+  private createOpaqueToken(): string {
+    return crypto.randomBytes(32).toString('base64url');
+  }
 
-    const pairingToken = await this.prisma.pairingToken.create({
+  async createToken(userId: string, dto: CreatePairingTokenDto) {
+    if (dto.type === 'GROUP') {
+      if (!dto.groupId) {
+        throw pairingErrors.groupRequired();
+      }
+
+      const group = await this.prisma.groupRoom.findUnique({
+        where: { id: dto.groupId },
+        select: { id: true, hostId: true },
+      });
+
+      if (!group) {
+        throw pairingErrors.groupNotFound();
+      }
+
+      if (group.hostId !== userId) {
+        const member = await this.prisma.groupMember.findUnique({
+          where: {
+            groupId_userId: { groupId: group.id, userId },
+          },
+          select: { leftAt: true },
+        });
+
+        if (!member || member.leftAt) {
+          throw pairingErrors.groupNotFound();
+        }
+      }
+    }
+
+    const token = this.createOpaqueToken();
+    const expiresAt = new Date(Date.now() + TOKEN_TTL_MS);
+    const tokenPrefix = token.slice(0, 8);
+
+    const record = await this.prisma.pairingToken.create({
       data: {
-        creatorId,
-        token,
+        creatorId: userId,
+        tokenHash: this.hashToken(token),
+        tokenPrefix,
         type: dto.type,
-        groupId: dto.groupId,
+        groupId: dto.groupId ?? null,
         expiresAt,
       },
     });
 
-    const qrPayload = JSON.stringify({
-      app: 'CofiRutas',
-      type: dto.type,
-      token: pairingToken.token,
-      expiresAt: pairingToken.expiresAt.toISOString(),
-    });
-
     return {
-      token: pairingToken.token,
-      type: pairingToken.type,
-      expiresAt: pairingToken.expiresAt,
-      qrPayload,
+      id: record.id,
+      token,
+      tokenPrefix,
+      type: record.type,
+      expiresAt: record.expiresAt,
+      // El token plano se devuelve una sola vez; el cliente lo convierte en QR.
+      qrPayload: `cofirutas://pair?token=${token}`,
     };
   }
 
-  async claimPairingToken(claimerId: string, tokenString: string) {
-    const formattedToken = tokenString.trim().toUpperCase();
+  async claimToken(claimerId: string, token: string) {
+    const tokenHash = this.hashToken(token.trim());
 
-    const token = await this.prisma.pairingToken.findUnique({
-      where: { token: formattedToken },
-      include: {
-        creator: {
-          select: { id: true, fullName: true, avatarUrl: true, email: true },
-        },
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const record = await tx.pairingToken.findUnique({
+        where: { tokenHash },
+        include: { creator: { select: publicUserSelect } },
+      });
+
+      if (!record) {
+        throw pairingErrors.tokenNotFound();
+      }
+
+      if (record.consumedAt) {
+        throw pairingErrors.tokenAlreadyUsed();
+      }
+
+      if (record.revokedAt) {
+        throw pairingErrors.tokenRevoked();
+      }
+
+      if (record.expiresAt.getTime() <= Date.now()) {
+        throw pairingErrors.tokenExpired();
+      }
+
+      if (record.creatorId === claimerId) {
+        throw pairingErrors.cannotPairWithSelf();
+      }
+
+      if (record.type === 'DUO') {
+        return this.claimDuo(tx, record, claimerId);
+      }
+
+      return this.claimGroup(tx, record, claimerId);
     });
-
-    if (!token) {
-      throw new NotFoundException('Token QR no encontrado o inválido');
-    }
-
-    if (token.usedAt) {
-      throw new BadRequestException('Este token QR ya ha sido reclamado');
-    }
-
-    if (new Date() > token.expiresAt) {
-      throw new BadRequestException(
-        'Este token QR ha expirado. Por favor, genera uno nuevo.',
-      );
-    }
-
-    if (token.creatorId === claimerId) {
-      throw new BadRequestException('No puedes reclamar tu propio token QR');
-    }
-
-    if (token.type === 'DUO') {
-      // Check if relationship already exists
-      const existing = await this.prisma.coupleLink.findFirst({
-        where: {
-          OR: [
-            { userAId: token.creatorId, userBId: claimerId },
-            { userAId: claimerId, userBId: token.creatorId },
-          ],
-        },
-      });
-
-      if (existing) {
-        if (existing.status === 'ACTIVE') {
-          throw new ConflictException(
-            'Ya estás emparejado en Modo Dúo con este usuario',
-          );
-        }
-        const updatedLink = await this.prisma.coupleLink.update({
-          where: { id: existing.id },
-          data: {
-            status: 'ACTIVE',
-            archivedAt: null,
-            startedAt: new Date(),
-          },
-          include: {
-            userA: { select: { id: true, fullName: true, avatarUrl: true } },
-            userB: { select: { id: true, fullName: true, avatarUrl: true } },
-          },
-        });
-
-        await this.prisma.pairingToken.update({
-          where: { id: token.id },
-          data: { usedAt: new Date() },
-        });
-
-        return {
-          message: 'Emparejado exitosamente en Modo Dúo!',
-          type: 'DUO',
-          link: updatedLink,
-        };
-      }
-
-      const newLink = await this.prisma.coupleLink.create({
-        data: {
-          userAId: token.creatorId,
-          userBId: claimerId,
-          status: 'ACTIVE',
-        },
-        include: {
-          userA: { select: { id: true, fullName: true, avatarUrl: true } },
-          userB: { select: { id: true, fullName: true, avatarUrl: true } },
-        },
-      });
-
-      await this.prisma.pairingToken.update({
-        where: { id: token.id },
-        data: { usedAt: new Date() },
-      });
-
-      return {
-        message: 'Emparejado exitosamente en Modo Dúo!',
-        type: 'DUO',
-        link: newLink,
-      };
-    }
-
-    if (token.type === 'GROUP' && token.groupId) {
-      const existingMember = await this.prisma.groupMember.findUnique({
-        where: {
-          groupId_userId: {
-            groupId: token.groupId,
-            userId: claimerId,
-          },
-        },
-      });
-
-      if (existingMember) {
-        throw new ConflictException('Ya eres miembro de este grupo');
-      }
-
-      const membership = await this.prisma.groupMember.create({
-        data: {
-          groupId: token.groupId,
-          userId: claimerId,
-        },
-        include: {
-          group: true,
-        },
-      });
-
-      await this.prisma.pairingToken.update({
-        where: { id: token.id },
-        data: { usedAt: new Date() },
-      });
-
-      return {
-        message: '¡Te has unido al grupo exitosamente!',
-        type: 'GROUP',
-        membership,
-      };
-    }
-
-    throw new BadRequestException(
-      'Configuración de tipo de emparejamiento inválida',
-    );
   }
 
-  async listMyLinks(userId: string) {
-    const duoLinks = await this.prisma.coupleLink.findMany({
+  private async claimDuo(
+    tx: Prisma.TransactionClient,
+    record: PairingTokenRow,
+    claimerId: string,
+  ) {
+    const userIds = [record.creatorId, claimerId];
+
+    const active = await tx.coupleLink.findFirst({
       where: {
-        OR: [{ userAId: userId }, { userBId: userId }],
         status: 'ACTIVE',
+        OR: [{ userAId: { in: userIds } }, { userBId: { in: userIds } }],
       },
-      include: {
-        userA: {
-          select: { id: true, fullName: true, avatarUrl: true, email: true },
-        },
-        userB: {
-          select: { id: true, fullName: true, avatarUrl: true, email: true },
-        },
-      },
-      orderBy: { startedAt: 'desc' },
+      select: { id: true },
     });
 
-    const groups = await this.prisma.groupMember.findMany({
-      where: { userId },
-      include: {
-        group: {
-          include: {
-            members: {
-              include: {
-                user: { select: { id: true, fullName: true, avatarUrl: true } },
-              },
-            },
-          },
+    if (active) {
+      throw pairingErrors.coupleAlreadyActive();
+    }
+
+    const [userAId, userBId] =
+      record.creatorId < claimerId
+        ? [record.creatorId, claimerId]
+        : [claimerId, record.creatorId];
+
+    await this.consumeToken(tx, record.id, claimerId);
+
+    try {
+      const link = await tx.coupleLink.create({
+        data: { userAId, userBId, status: 'ACTIVE' },
+        include: {
+          userA: { select: publicUserSelect },
+          userB: { select: publicUserSelect },
         },
+      });
+
+      return {
+        message: 'Emparejado exitosamente en Modo Dúo',
+        type: 'DUO' as const,
+        link,
+      };
+    } catch (error) {
+      // El índice único parcial puede rechazar una carrera entre dos claims.
+      if (isUniqueConstraintError(error)) {
+        throw pairingErrors.coupleAlreadyActive();
+      }
+      throw error;
+    }
+  }
+
+  private async claimGroup(
+    tx: Prisma.TransactionClient,
+    record: PairingTokenRow,
+    claimerId: string,
+  ) {
+    if (!record.groupId) {
+      throw pairingErrors.groupNotFound();
+    }
+
+    const group = await tx.groupRoom.findUnique({
+      where: { id: record.groupId },
+      select: {
+        id: true,
+        status: true,
+        maxMembers: true,
+        expiresAt: true,
       },
     });
+
+    if (!group) {
+      throw pairingErrors.groupNotFound();
+    }
+
+    if (group.status !== 'OPEN') {
+      throw pairingErrors.groupClosed();
+    }
+
+    if (group.expiresAt.getTime() <= Date.now()) {
+      throw pairingErrors.groupExpired();
+    }
+
+    const existing = await tx.groupMember.findUnique({
+      where: {
+        groupId_userId: { groupId: group.id, userId: claimerId },
+      },
+    });
+
+    if (existing && !existing.leftAt) {
+      throw pairingErrors.groupAlreadyMember();
+    }
+
+    const memberCount = await tx.groupMember.count({
+      where: { groupId: group.id, leftAt: null },
+    });
+
+    if (memberCount >= group.maxMembers) {
+      throw pairingErrors.groupFull();
+    }
+
+    await this.consumeToken(tx, record.id, claimerId);
+
+    const membership = existing
+      ? await tx.groupMember.update({
+          where: { id: existing.id },
+          data: { leftAt: null, role: 'MEMBER', joinedAt: new Date() },
+          include: { group: true },
+        })
+      : await tx.groupMember.create({
+          data: { groupId: group.id, userId: claimerId, role: 'MEMBER' },
+          include: { group: true },
+        });
 
     return {
-      duoLinks: duoLinks.map((link) => {
-        const partner = link.userAId === userId ? link.userB : link.userA;
-        return {
-          id: link.id,
-          status: link.status,
-          startedAt: link.startedAt,
-          partner,
-        };
-      }),
-      groups: groups.map((g) => g.group),
+      message: 'Te uniste al grupo',
+      type: 'GROUP' as const,
+      membership,
     };
   }
 
-  async archiveLink(userId: string, linkId: string) {
-    const link = await this.prisma.coupleLink.findUnique({
-      where: { id: linkId },
+  private async consumeToken(
+    tx: Prisma.TransactionClient,
+    tokenId: string,
+    claimerId: string,
+  ): Promise<void> {
+    const consumed = await tx.pairingToken.updateMany({
+      where: { id: tokenId, consumedAt: null, revokedAt: null },
+      data: { consumedAt: new Date(), consumedById: claimerId },
     });
 
-    if (!link || (link.userAId !== userId && link.userBId !== userId)) {
-      throw new NotFoundException(
-        'Link no encontrado o no perteneciente al usuario',
-      );
+    if (consumed.count !== 1) {
+      throw pairingErrors.tokenAlreadyUsed();
     }
+  }
 
-    const updated = await this.prisma.coupleLink.update({
-      where: { id: linkId },
-      data: {
-        status: 'ARCHIVED',
-        archivedAt: new Date(),
+  async getDuo(userId: string): Promise<DuoView | null> {
+    const link = await this.prisma.coupleLink.findFirst({
+      where: {
+        status: 'ACTIVE',
+        OR: [{ userAId: userId }, { userBId: userId }],
+      },
+      include: {
+        userA: { select: publicUserSelect },
+        userB: { select: publicUserSelect },
       },
     });
 
+    if (!link) {
+      return null;
+    }
+
     return {
-      message:
-        'Relación archivada. Las memorias históricas y los registros están congelados y preservados.',
-      link: updated,
+      id: link.id,
+      status: link.status,
+      startedAt: link.startedAt,
+      partner: link.userAId === userId ? link.userB : link.userA,
     };
+  }
+
+  async archiveDuo(userId: string) {
+    const link = await this.prisma.coupleLink.findFirst({
+      where: {
+        status: 'ACTIVE',
+        OR: [{ userAId: userId }, { userBId: userId }],
+      },
+    });
+
+    if (!link) {
+      throw pairingErrors.coupleNotFound();
+    }
+
+    const archived = await this.prisma.coupleLink.update({
+      where: { id: link.id },
+      data: { status: 'ARCHIVED', archivedAt: new Date() },
+    });
+
+    return {
+      message: 'Vínculo archivado; el historial queda preservado',
+      link: archived,
+    };
+  }
+
+  async revokeToken(userId: string, tokenId: string) {
+    const result = await this.prisma.pairingToken.updateMany({
+      where: {
+        id: tokenId,
+        creatorId: userId,
+        consumedAt: null,
+        revokedAt: null,
+      },
+      data: { revokedAt: new Date() },
+    });
+
+    if (result.count === 0) {
+      throw pairingErrors.tokenNotFound();
+    }
+
+    return { message: 'Token revocado', revoked: result.count };
   }
 }
