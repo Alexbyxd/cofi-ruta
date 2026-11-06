@@ -49,4 +49,16 @@ export const authErrors = {
       'GOOGLE_EMAIL_NOT_VERIFIED',
       'Google no confirmó que el correo electrónico sea verificado',
     ),
+  forbidden: () =>
+    new DomainException(
+      403,
+      'FORBIDDEN',
+      'No tienes permisos para realizar esta acción',
+    ),
+  merchantAccessDenied: () =>
+    new DomainException(
+      403,
+      'MERCHANT_ACCESS_DENIED',
+      'No tienes acceso a este local',
+    ),
 };

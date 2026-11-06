@@ -5,6 +5,8 @@ import { AuthService } from './auth.service';
 import { AuthController, MeController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { RolesGuard } from './guards/roles.guard';
+import { MerchantGuard } from './guards/merchant.guard';
 
 @Module({
   imports: [
@@ -12,7 +14,20 @@ import { GoogleStrategy } from './strategies/google.strategy';
     JwtModule.register({}),
   ],
   controllers: [AuthController, MeController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy],
-  exports: [AuthService, JwtStrategy, GoogleStrategy, PassportModule],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    GoogleStrategy,
+    RolesGuard,
+    MerchantGuard,
+  ],
+  exports: [
+    AuthService,
+    JwtStrategy,
+    GoogleStrategy,
+    RolesGuard,
+    MerchantGuard,
+    PassportModule,
+  ],
 })
 export class AuthModule {}
