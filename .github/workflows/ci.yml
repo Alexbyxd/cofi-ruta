@@ -8,11 +8,34 @@ on:
 
 jobs:
   backend-quality:
-    name: Backend Lint & Unit Tests
+    name: Backend Lint, Tests & Schema
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: cofi-ruta-backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cofi_user
+          POSTGRES_PASSWORD: cofi_password
+          POSTGRES_DB: cofi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cofi_user -d cofi_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://cofi_user:cofi_password@localhost:5432/cofi_test?schema=public
+      DATABASE_URL_TEST: postgresql://cofi_user:cofi_password@localhost:5432/cofi_test?schema=public
+      JWT_ACCESS_SECRET: testaccesssecret123
+      JWT_REFRESH_SECRET: testrefreshsecret123
+      GOOGLE_CLIENT_ID: test-client-id
+      GOOGLE_CLIENT_SECRET: test-client-secret
+      GOOGLE_CALLBACK_URL: http://localhost:3001/api/v1/auth/google/callback
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -35,15 +58,16 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Apply migrations to test database
+        run: npx prisma migrate deploy
+
       - name: Run Linter
         run: pnpm lint
 
-      - name: Run Unit Tests
-        env:
-          NODE_ENV: test
-          DATABASE_URL: postgresql://test:test@localhost:5432/test
-          JWT_ACCESS_SECRET: testaccesssecret123
-          JWT_REFRESH_SECRET: testrefreshsecret123
+      - name: Run Unit and DB Tests
         run: pnpm test
 
   frontend-quality:
