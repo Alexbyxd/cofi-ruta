@@ -1,12 +1,25 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../prisma/prisma.service';
+import { accessTokenSecret } from '../auth.constants';
+import { authErrors } from '../auth.errors';
 
 export interface JwtPayload {
   sub: string;
   email: string;
   role: string;
+  sid: string;
+}
+
+export interface AuthenticatedUser {
+  id: string;
+  email: string;
+  fullName: string;
+  avatarUrl: string | null;
+  role: string;
+  createdAt: Date;
+  sessionId: string;
 }
 
 @Injectable()
@@ -15,28 +28,53 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey:
-        process.env.JWT_ACCESS_SECRET || 'super_secret_jwt_access_key',
+      secretOrKey: accessTokenSecret(),
     });
   }
 
-  async validate(payload: JwtPayload) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        avatarUrl: true,
-        role: true,
-        createdAt: true,
+  async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
+    if (!payload.sid) {
+      throw authErrors.sessionExpired();
+    }
+
+    const session = await this.prisma.session.findFirst({
+      where: {
+        id: payload.sid,
+        userId: payload.sub,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            avatarUrl: true,
+            role: true,
+            isActive: true,
+            createdAt: true,
+          },
+        },
       },
     });
 
-    if (!user) {
-      throw new UnauthorizedException('uSuario no encontrado o expirado');
+    if (!session) {
+      throw authErrors.sessionExpired();
     }
 
-    return user;
+    if (!session.user.isActive) {
+      throw authErrors.accountInactive();
+    }
+
+    return {
+      id: session.user.id,
+      email: session.user.email,
+      fullName: session.user.fullName,
+      avatarUrl: session.user.avatarUrl,
+      role: session.user.role,
+      createdAt: session.user.createdAt,
+      sessionId: session.id,
+    };
   }
 }

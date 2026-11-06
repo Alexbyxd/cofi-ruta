@@ -3,16 +3,9 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback } from 'passport-google-oauth20';
 import { AuthService } from '../auth.service';
 
-export interface GoogleProfile {
-  googleId: string;
-  email: string;
-  fullName: string;
-  avatarUrl?: string;
-}
-
 export interface GoogleOAuthProfile {
   id: string;
-  emails?: { value: string }[];
+  emails?: { value: string; verified?: boolean }[];
   displayName?: string;
   photos?: { value: string }[];
 }
@@ -37,15 +30,14 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     profile: GoogleOAuthProfile,
     done: VerifyCallback,
   ): Promise<void> {
-    const googleProfile: GoogleProfile = {
-      googleId: profile.id,
-      email: profile.emails?.[0]?.value || '',
-      fullName: profile.displayName || '',
-      avatarUrl: profile.photos?.[0]?.value,
-    };
-
     try {
-      const result = await this.authService.googleLogin(googleProfile);
+      const result = await this.authService.googleLogin({
+        googleId: profile.id,
+        email: profile.emails?.[0]?.value || '',
+        emailVerified: profile.emails?.[0]?.verified === true,
+        fullName: profile.displayName || '',
+        avatarUrl: profile.photos?.[0]?.value,
+      });
       done(null, result);
     } catch (err) {
       done(err as Error, false);

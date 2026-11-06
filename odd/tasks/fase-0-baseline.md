@@ -81,7 +81,7 @@ S12 — Fuera de alcance
 | U1 | Baseline + correcciones de schema y PRD | S1–S3 | inline | hecho |
 | U2 | Harness de tests DB + constraints/FTS + CI | S4 | inline | hecho |
 | U3 | Seed idempotente con datos de Oruro | S5 | inline | hecho |
-| U4 | Auth core (refresh opaco, sesiones, /me) | S6 | inline | pendiente |
+| U4 | Auth core (refresh opaco, sesiones, /me) | S6 | inline | hecho |
 | U5 | Guards de rol y merchant | S7 | inline | pendiente |
 | U6 | Dúo (tokens hasheados, vínculo canónico) | S8 | inline | pendiente |
 | U7 | Grupos (código, lobby, expiración) | S9 | inline | pendiente |
@@ -103,3 +103,5 @@ L5: U1 hecho. Se quitó `@@unique([userAId, userBId])` de `CoupleLink`; baseline
 L6: U2 hecho. RED observado: 11/11 tests fallaban con `relation "MerchantStaff" does not exist` contra el esquema viejo. GREEN contra `cofi_rutas_v2_test`: 11/11 constraints/FTS y 40/40 unit. `pnpm test` ahora encadena unit + DB; CI agrega Postgres 16, `prisma validate` y `migrate deploy`. El reset de la DB dev queda pendiente de consentimiento explícito del guard de Prisma 7.
 
 L7: U3 hecho. Investigación con Restaurants10 (DuckDuckGo HTML como índice): 22 cafeterías reales de Oruro con dirección y coordenadas tomadas de la ficha de origen, `sourceUrl` por registro en `prisma/seed-data/cafes.json`. Horarios de Picasso y Café Roma salen de la fuente; el resto son horarios y menús representativos declarados en `dataNote`. 6 categorías, 5 tags, 154 ítems de menú (plantillas representativas + un ítem de firma por local) y 133 horarios. RED: `Cannot find module '../../prisma/seed'`. GREEN: 2/2 tests de seed; suite total 40 unit + 13 DB. CLI `pnpm db:seed` dos veces seguidas devuelve los mismos conteos. `prisma/seed.ts` y `prisma/seed-data` se agregaron al lint.
+
+L8: U4 hecho. `AuthService` con refresh opaco de 32 bytes (SHA-256 en `Session.tokenHash`), rotación por refresh, sesiones revocables, cambio de password que revoca las demás, `getMe` con vínculos activos y membresías de comercio, y Google solo con correo verificado. `JwtStrategy` exige `sid` con sesión vigente y `User.isActive`. Endpoints: `auth/*`, `GET/PATCH /me`, `PATCH /me/password`, `GET /me/sessions`, `DELETE /me/sessions/:id`; `GET /auth/profile` queda como alias. RED: el spec DB de auth no compilaba (servicio y estrategia viejos); GREEN: 11/11 DB y 32/32 unit de auth. Suite completa 48 unit + 24 DB. Nota técnica: `@nestjs/jwt` y `@nestjs/passport` v12 son ESM-only; el spec DB los mockea para metadata de DI y firma/verifica JWT HS256 con `node:crypto`.

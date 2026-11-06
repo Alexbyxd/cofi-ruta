@@ -26,12 +26,12 @@ describe('GoogleStrategy', () => {
   describe('validate', () => {
     const profile: GoogleOAuthProfile = {
       id: 'google-123',
-      emails: [{ value: 'carlos@cofi.com' }],
+      emails: [{ value: 'carlos@cofi.com', verified: true }],
       displayName: 'Carlos Morales',
       photos: [{ value: 'https://example.com/avatar.jpg' }],
     };
 
-    it('should call authService.googleLogin and pass result to done', async () => {
+    it('should call authService.googleLogin with emailVerified and pass result to done', async () => {
       const expectedResult = {
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
@@ -56,13 +56,14 @@ describe('GoogleStrategy', () => {
       expect(authService.googleLogin).toHaveBeenCalledWith({
         googleId: 'google-123',
         email: 'carlos@cofi.com',
+        emailVerified: true,
         fullName: 'Carlos Morales',
         avatarUrl: 'https://example.com/avatar.jpg',
       });
       expect(mockDone).toHaveBeenCalledWith(null, expectedResult);
     });
 
-    it('should pass empty strings when profile lacks emails or displayName', async () => {
+    it('should treat a missing email as unverified and use empty strings', async () => {
       (authService.googleLogin as jest.Mock).mockResolvedValue({
         accessToken: 'at',
         refreshToken: 'rt',
@@ -79,6 +80,7 @@ describe('GoogleStrategy', () => {
       expect(authService.googleLogin).toHaveBeenCalledWith({
         googleId: 'google-456',
         email: '',
+        emailVerified: false,
         fullName: '',
         avatarUrl: undefined,
       });
@@ -88,22 +90,27 @@ describe('GoogleStrategy', () => {
       );
     });
 
-    it('should pass error to done when googleLogin throws', async () => {
-      const error = new Error('Usuario ya vinculado');
-      (authService.googleLogin as jest.Mock).mockRejectedValue(error);
+    it('should not trust an email Google did not verify', async () => {
+      (authService.googleLogin as jest.Mock).mockResolvedValue({
+        accessToken: 'at',
+        refreshToken: 'rt',
+        user: { id: 'u1', email: 'x@cofi.com', fullName: 'X', role: 'USER' },
+      });
 
       await strategy.validate(
         'access-token',
         'refresh-token',
-        profile,
+        { ...profile, emails: [{ value: 'carlos@cofi.com', verified: false }] },
         mockDone,
       );
 
-      expect(mockDone).toHaveBeenCalledWith(error, false);
+      expect(authService.googleLogin).toHaveBeenCalledWith(
+        expect.objectContaining({ emailVerified: false }),
+      );
     });
 
-    it('should call done with error and false when googleLogin fails', async () => {
-      const error = new Error('Fallo de Google');
+    it('should pass error to done when googleLogin throws', async () => {
+      const error = new Error('Usuario ya vinculado');
       (authService.googleLogin as jest.Mock).mockRejectedValue(error);
 
       await strategy.validate(
