@@ -6,10 +6,19 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// ─────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────
+
 enum Role {
   USER
-  MERCHANT
   SUPERADMIN
+}
+
+enum MerchantRole {
+  OWNER
+  MANAGER
+  STAFF
 }
 
 enum RelationshipStatus {
@@ -22,78 +31,309 @@ enum PairingType {
   GROUP
 }
 
-model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  passwordHash  String?
-  fullName      String
-  avatarUrl     String?
-  role          Role           @default(USER)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+enum CoffeeShopStatus {
+  DRAFT
+  ACTIVE
+  SUSPENDED
+}
 
-  accounts      Account[]
-  sessions      Session[]
-  pairingTokens PairingToken[]
-  duoAsUserA    CoupleLink[]   @relation("UserA")
-  duoAsUserB    CoupleLink[]   @relation("UserB")
-  groupMembers  GroupMember[]
+enum GroupRoomStatus {
+  OPEN
+  CLOSED
+  EXPIRED
+}
+
+enum GroupMemberRole {
+  HOST
+  MEMBER
+}
+
+enum VisitContext {
+  SOLO
+  DUO
+  GROUP
+}
+
+enum VisitStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  CANCELLED
+}
+
+enum VisitParticipantRole {
+  CREATOR
+  PARTNER
+  MEMBER
+}
+
+enum VisitRejectionReason {
+  WRONG_PIN
+  OUT_OF_RANGE
+  LOW_ACCURACY
+  PIN_EXPIRED
+  TOO_MANY_ATTEMPTS
+}
+
+enum VerificationResult {
+  SUCCESS
+  WRONG_PIN
+  OUT_OF_RANGE
+  LOW_ACCURACY
+  EXPIRED
+  RATE_LIMITED
+}
+
+enum ReviewStatus {
+  PUBLISHED
+  HIDDEN
+  DELETED
+}
+
+enum MatchContext {
+  DUO
+  GROUP
+}
+
+enum MatchSessionStatus {
+  WAITING
+  ACTIVE
+  MATCHED
+  EXPIRED
+  CANCELLED
+}
+
+// ─────────────────────────────────────────────────────────────
+// Identidad y acceso
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid(7))
+  email        String   @unique
+  passwordHash String?
+  fullName     String
+  avatarUrl    String?
+  role         Role     @default(USER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  accounts              Account[]
+  sessions              Session[]
+  pairingTokens         PairingToken[]        @relation("PairingTokenCreator")
+  consumedPairingTokens PairingToken[]        @relation("PairingTokenConsumer")
+  duoAsUserA            CoupleLink[]          @relation("CoupleUserA")
+  duoAsUserB            CoupleLink[]          @relation("CoupleUserB")
+  groupMembers          GroupMember[]
+  hostedGroups          GroupRoom[]           @relation("GroupHost")
+  merchantStaff         MerchantStaff[]
+  visitsCreated         Visit[]               @relation("VisitCreator")
+  visitParticipants     VisitParticipant[]
+  verifiedVisits        VerifiedVisit[]
+  reviews               Review[]              @relation("ReviewAuthor")
+  moderatedReviews      Review[]              @relation("ReviewModerator")
+  verificationAttempts  VerificationAttempt[]
+  matchParticipants     MatchParticipant[]
+  swipes                Swipe[]
 }
 
 model Account {
-  id                String   @id @default(uuid())
+  id                String   @id @default(uuid(7))
   userId            String
   provider          String
   providerAccountId String
-  createdAt         DateTime @default(now())
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
 
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@index([userId])
 }
 
 model Session {
-  id        String    @id @default(uuid())
-  userId    String
-  tokenHash String    @unique
-  userAgent String?
-  ipAddress String?
-  expiresAt DateTime
-  revokedAt DateTime?
-  createdAt DateTime  @default(now())
+  id         String    @id @default(uuid(7))
+  userId     String
+  tokenHash  String    @unique
+  userAgent  String?
+  ipAddress  String?
+  expiresAt  DateTime  @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+  lastUsedAt DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
 
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
-model PairingToken {
-  id        String      @id @default(uuid())
-  creatorId String
-  token     String      @unique
-  type      PairingType @default(DUO)
-  groupId   String?
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime    @default(now())
+model MerchantStaff {
+  id           String       @id @default(uuid(7))
+  userId       String
+  coffeeShopId String
+  role         MerchantRole @default(STAFF)
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(3)
 
-  creator   User        @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coffeeShop CoffeeShop @relation(fields: [coffeeShopId], references: [id], onDelete: Cascade)
 
-  @@index([token])
-  @@index([creatorId])
+  @@unique([userId, coffeeShopId])
+  @@index([coffeeShopId])
 }
 
+// ─────────────────────────────────────────────────────────────
+// Local, horarios, tags y catálogo
+// ─────────────────────────────────────────────────────────────
+
+model CoffeeShop {
+  id                  String           @id @default(uuid(7))
+  name                String
+  slug                String           @unique
+  description         String?
+  address             String
+  neighborhood        String?
+  latitude            Decimal          @db.Decimal(9, 6)
+  longitude           Decimal          @db.Decimal(9, 6)
+  phone               String?
+  whatsapp            String?
+  instagram           String?
+  coverUrl            String?
+  coverPublicId       String?
+  status              CoffeeShopStatus @default(DRAFT)
+  averageRating       Decimal          @default(0.00) @db.Decimal(3, 2)
+  reviewCount         Int              @default(0)
+  verifiedReviewCount Int              @default(0)
+  rating1Count        Int              @default(0)
+  rating2Count        Int              @default(0)
+  rating3Count        Int              @default(0)
+  rating4Count        Int              @default(0)
+  rating5Count        Int              @default(0)
+  createdAt           DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime         @updatedAt @db.Timestamptz(3)
+
+  merchantStaff  MerchantStaff[]
+  openingHours   OpeningHours[]
+  specialHours   SpecialHours[]
+  tags           CoffeeShopTag[]
+  menuItems      MenuItem[]
+  dailyPins      DailyPin[]
+  visits         Visit[]
+  verifiedVisits VerifiedVisit[]
+  reviews        Review[]
+  swipes         Swipe[]
+  matches        Match[]
+
+  @@index([neighborhood])
+  @@index([status])
+  @@index([averageRating])
+}
+
+model OpeningHours {
+  id           String   @id @default(uuid(7))
+  coffeeShopId String
+  dayOfWeek    Int
+  openTime     DateTime @db.Time(0)
+  closeTime    DateTime @db.Time(0)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  coffeeShop CoffeeShop @relation(fields: [coffeeShopId], references: [id], onDelete: Cascade)
+
+  @@unique([coffeeShopId, dayOfWeek, openTime])
+  @@index([coffeeShopId])
+}
+
+model SpecialHours {
+  id           String    @id @default(uuid(7))
+  coffeeShopId String
+  date         DateTime  @db.Date
+  isClosed     Boolean   @default(false)
+  openTime     DateTime? @db.Time(0)
+  closeTime    DateTime? @db.Time(0)
+  note         String?
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+
+  coffeeShop CoffeeShop @relation(fields: [coffeeShopId], references: [id], onDelete: Cascade)
+
+  @@unique([coffeeShopId, date])
+  @@index([coffeeShopId])
+}
+
+model Tag {
+  id        String   @id @default(uuid(7))
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  coffeeShops CoffeeShopTag[]
+}
+
+model CoffeeShopTag {
+  coffeeShopId String
+  tagId        String
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  coffeeShop CoffeeShop @relation(fields: [coffeeShopId], references: [id], onDelete: Cascade)
+  tag        Tag        @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([coffeeShopId, tagId])
+  @@index([tagId])
+}
+
+model Category {
+  id        String   @id @default(uuid(7))
+  name      String   @unique
+  slug      String   @unique
+  sortOrder Int      @default(0)
+  icon      String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  menuItems MenuItem[]
+}
+
+model MenuItem {
+  id            String    @id @default(uuid(7))
+  coffeeShopId  String
+  categoryId    String
+  name          String
+  description   String?
+  price         Decimal   @db.Decimal(10, 2)
+  imageUrl      String?
+  imagePublicId String?
+  isAvailable   Boolean   @default(true)
+  isFeatured    Boolean   @default(false)
+  sortOrder     Int       @default(0)
+  archivedAt    DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+
+  coffeeShop CoffeeShop  @relation(fields: [coffeeShopId], references: [id], onDelete: Cascade)
+  category   Category    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  visitItems VisitItem[]
+
+  @@unique([coffeeShopId, name])
+  @@index([coffeeShopId])
+  @@index([categoryId])
+  @@index([isAvailable])
+  @@index([isFeatured])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Vínculos dúo/grupo y tokens QR
+// ─────────────────────────────────────────────────────────────
+
 model CoupleLink {
-  id         String             @id @default(uuid())
+  id         String             @id @default(uuid(7))
   userAId    String
   userBId    String
   status     RelationshipStatus @default(ACTIVE)
-  startedAt  DateTime           @default(now())
-  archivedAt DateTime?
+  startedAt  DateTime           @default(now()) @db.Timestamptz(3)
+  archivedAt DateTime?          @db.Timestamptz(3)
 
-  userA      User               @relation("UserA", fields: [userAId], references: [id], onDelete: Cascade)
-  userB      User               @relation("UserB", fields: [userBId], references: [id], onDelete: Cascade)
+  userA         User           @relation("CoupleUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB         User           @relation("CoupleUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  visits        Visit[]
+  reviews       Review[]
+  matchSessions MatchSession[]
 
   @@unique([userAId, userBId])
   @@index([userAId])
@@ -101,61 +341,298 @@ model CoupleLink {
 }
 
 model GroupRoom {
-  id        String        @id @default(uuid())
-  name      String
-  code      String        @unique
-  createdAt DateTime      @default(now())
-  members   GroupMember[]
+  id         String          @id @default(uuid(7))
+  name       String
+  code       String          @unique
+  hostId     String
+  status     GroupRoomStatus @default(OPEN)
+  maxMembers Int             @default(12)
+  expiresAt  DateTime        @db.Timestamptz(3)
+  closedAt   DateTime?       @db.Timestamptz(3)
+  createdAt  DateTime        @default(now()) @db.Timestamptz(3)
+
+  host          User           @relation("GroupHost", fields: [hostId], references: [id], onDelete: Cascade)
+  members       GroupMember[]
+  visits        Visit[]
+  matchSessions MatchSession[]
+  pairingTokens PairingToken[]
+
+  @@index([hostId])
+  @@index([status])
 }
 
 model GroupMember {
-  id       String    @id @default(uuid())
+  id       String          @id @default(uuid(7))
   groupId  String
   userId   String
-  joinedAt DateTime  @default(now())
+  role     GroupMemberRole @default(MEMBER)
+  joinedAt DateTime        @default(now()) @db.Timestamptz(3)
+  leftAt   DateTime?       @db.Timestamptz(3)
 
-  group    GroupRoom @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group GroupRoom @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, userId])
+  @@index([userId])
 }
 
-model CoffeeShop {
-  id            String   @id @default(uuid())
-  name          String
-  slug          String   @unique
-  description   String?
-  address       String?
-  neighborhood  String?
-  distanceMeters Int?
-  rating        Decimal? @db.Decimal(3, 2)
-  reviewCount   Int      @default(0)
-  imageUrl      String?
-  isOpen        Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+model PairingToken {
+  id           String      @id @default(uuid(7))
+  creatorId    String
+  tokenHash    String      @unique
+  tokenPrefix  String
+  type         PairingType @default(DUO)
+  groupId      String?
+  expiresAt    DateTime    @db.Timestamptz(3)
+  consumedById String?
+  consumedAt   DateTime?   @db.Timestamptz(3)
+  revokedAt    DateTime?   @db.Timestamptz(3)
+  createdAt    DateTime    @default(now()) @db.Timestamptz(3)
 
-  products      Product[]
+  creator    User       @relation("PairingTokenCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  consumedBy User?      @relation("PairingTokenConsumer", fields: [consumedById], references: [id], onDelete: SetNull)
+  group      GroupRoom? @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
-  @@index([slug])
-  @@index([neighborhood])
-  @@index([isOpen])
+  @@index([creatorId])
+  @@index([groupId])
+  @@index([tokenPrefix])
 }
 
-model Product {
-  id           String   @id @default(uuid())
+// ─────────────────────────────────────────────────────────────
+// Visitas, PIN y verificación
+// ─────────────────────────────────────────────────────────────
+
+model Visit {
+  id                String                @id @default(uuid(7))
+  coffeeShopId      String
+  createdById       String
+  coupleLinkId      String?
+  groupId           String?
+  context           VisitContext
+  status            VisitStatus           @default(PENDING)
+  visitDate         DateTime              @db.Date
+  totalSpent        Decimal               @default(0.00) @db.Decimal(10, 2)
+  notes             String?
+  photoUrl          String?
+  photoPublicId     String?
+  checkInLatitude   Decimal?              @db.Decimal(9, 6)
+  checkInLongitude  Decimal?              @db.Decimal(9, 6)
+  distanceMeters    Int?
+  gpsAccuracyMeters Int?
+  verifiedAt        DateTime?             @db.Timestamptz(3)
+  rejectedAt        DateTime?             @db.Timestamptz(3)
+  rejectionReason   VisitRejectionReason?
+  createdAt         DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime              @updatedAt @db.Timestamptz(3)
+
+  coffeeShop           CoffeeShop            @relation(fields: [coffeeShopId], references: [id], onDelete: Restrict)
+  createdBy            User                  @relation("VisitCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  coupleLink           CoupleLink?           @relation(fields: [coupleLinkId], references: [id], onDelete: SetNull)
+  group                GroupRoom?            @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  participants         VisitParticipant[]
+  items                VisitItem[]
+  review               Review?
+  verifiedVisits       VerifiedVisit[]
+  verificationAttempts VerificationAttempt[]
+
+  @@index([coffeeShopId, visitDate])
+  @@index([createdById])
+  @@index([coupleLinkId])
+  @@index([groupId])
+  @@index([status])
+}
+
+model VisitParticipant {
+  id       String               @id @default(uuid(7))
+  visitId  String
+  userId   String
+  role     VisitParticipantRole @default(MEMBER)
+  joinedAt DateTime             @default(now()) @db.Timestamptz(3)
+
+  visit Visit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([visitId, userId])
+  @@index([userId])
+}
+
+model VisitItem {
+  id         String  @id @default(uuid(7))
+  visitId    String
+  menuItemId String
+  itemName   String
+  quantity   Int     @default(1)
+  unitPrice  Decimal @db.Decimal(10, 2)
+
+  visit    Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+
+  @@unique([visitId, menuItemId])
+  @@index([menuItemId])
+}
+
+model DailyPin {
+  id           String   @id @default(uuid(7))
   coffeeShopId String
-  name         String
-  description  String?
-  price        Decimal  @db.Decimal(10, 2)
-  currency     String   @default("BOB")
-  imageUrl     String?
-  isAvailable  Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  date         DateTime @db.Date
+  pinCode      String   @db.VarChar(4)
+  generatedAt  DateTime @default(now()) @db.Timestamptz(3)
+  expiresAt    DateTime @db.Timestamptz(3)
 
-  coffeeShop   CoffeeShop @relation(fields: [coffeeShopId], references: [id], onDelete: Cascade)
+  coffeeShop CoffeeShop @relation(fields: [coffeeShopId], references: [id], onDelete: Cascade)
+
+  @@unique([coffeeShopId, date])
+  @@index([coffeeShopId])
+}
+
+model VerificationAttempt {
+  id                String             @id @default(uuid(7))
+  visitId           String
+  userId            String
+  pinHash           String
+  distanceMeters    Int?
+  gpsAccuracyMeters Int?
+  result            VerificationResult
+  createdAt         DateTime           @default(now()) @db.Timestamptz(3)
+
+  visit Visit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([visitId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model VerifiedVisit {
+  id           String   @id @default(uuid(7))
+  visitId      String
+  userId       String
+  coffeeShopId String
+  visitDate    DateTime @db.Date
+  verifiedAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  visit      Visit      @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coffeeShop CoffeeShop @relation(fields: [coffeeShopId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, coffeeShopId, visitDate])
+  @@index([visitId])
+  @@index([coffeeShopId, visitDate])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Reseñas, reputación y moderación
+// ─────────────────────────────────────────────────────────────
+
+model Review {
+  id               String       @id @default(uuid(7))
+  coffeeShopId     String
+  authorId         String
+  coupleLinkId     String?
+  visitId          String?      @unique
+  rating           Decimal      @db.Decimal(2, 1)
+  comment          String?      @db.VarChar(500)
+  status           ReviewStatus @default(PUBLISHED)
+  moderatedById    String?
+  moderatedAt      DateTime?    @db.Timestamptz(3)
+  moderationReason String?
+  deletedAt        DateTime?    @db.Timestamptz(3)
+  createdAt        DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @db.Timestamptz(3)
+
+  coffeeShop  CoffeeShop    @relation(fields: [coffeeShopId], references: [id], onDelete: Cascade)
+  author      User          @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  coupleLink  CoupleLink?   @relation(fields: [coupleLinkId], references: [id], onDelete: SetNull)
+  visit       Visit?        @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  moderatedBy User?         @relation("ReviewModerator", fields: [moderatedById], references: [id], onDelete: SetNull)
+  photos      ReviewPhoto[]
+
+  @@unique([authorId, coffeeShopId])
+  @@index([coffeeShopId, status])
+  @@index([coupleLinkId])
+  @@index([rating])
+}
+
+model ReviewPhoto {
+  id        String   @id @default(uuid(7))
+  reviewId  String
+  url       String
+  publicId  String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Matcher y modo grupal
+// ─────────────────────────────────────────────────────────────
+
+model MatchSession {
+  id           String             @id @default(uuid(7))
+  context      MatchContext
+  coupleLinkId String?
+  groupId      String?
+  status       MatchSessionStatus @default(WAITING)
+  deckSeed     String
+  expiresAt    DateTime           @db.Timestamptz(3)
+  startedAt    DateTime?          @db.Timestamptz(3)
+  completedAt  DateTime?          @db.Timestamptz(3)
+  createdAt    DateTime           @default(now()) @db.Timestamptz(3)
+
+  coupleLink   CoupleLink?        @relation(fields: [coupleLinkId], references: [id], onDelete: SetNull)
+  group        GroupRoom?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  participants MatchParticipant[]
+  swipes       Swipe[]
+  match        Match?
+
+  @@index([coupleLinkId])
+  @@index([groupId])
+  @@index([status])
+}
+
+model MatchParticipant {
+  id        String    @id @default(uuid(7))
+  sessionId String
+  userId    String
+  joinedAt  DateTime  @default(now()) @db.Timestamptz(3)
+  leftAt    DateTime? @db.Timestamptz(3)
+
+  session MatchSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId])
+  @@index([userId])
+}
+
+model Swipe {
+  id           String   @id @default(uuid(7))
+  sessionId    String
+  userId       String
+  coffeeShopId String
+  liked        Boolean
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  session    MatchSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coffeeShop CoffeeShop   @relation(fields: [coffeeShopId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId, coffeeShopId])
+  @@index([sessionId, coffeeShopId])
+  @@index([userId])
+}
+
+model Match {
+  id                String   @id @default(uuid(7))
+  sessionId         String   @unique
+  coffeeShopId      String
+  likesCount        Int
+  participantsCount Int
+  matchedAt         DateTime @default(now()) @db.Timestamptz(3)
+
+  session    MatchSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  coffeeShop CoffeeShop   @relation(fields: [coffeeShopId], references: [id], onDelete: Cascade)
 
   @@index([coffeeShopId])
-  @@index([isAvailable])
 }
