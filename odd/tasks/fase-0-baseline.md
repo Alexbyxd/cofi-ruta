@@ -80,7 +80,7 @@ S12 — Fuera de alcance
 |----|-------|-------|-------|--------|
 | U1 | Baseline + correcciones de schema y PRD | S1–S3 | inline | hecho |
 | U2 | Harness de tests DB + constraints/FTS + CI | S4 | inline | hecho |
-| U3 | Seed idempotente con datos de Oruro | S5 | inline | pendiente |
+| U3 | Seed idempotente con datos de Oruro | S5 | inline | hecho |
 | U4 | Auth core (refresh opaco, sesiones, /me) | S6 | inline | pendiente |
 | U5 | Guards de rol y merchant | S7 | inline | pendiente |
 | U6 | Dúo (tokens hasheados, vínculo canónico) | S8 | inline | pendiente |
@@ -101,3 +101,5 @@ L4: Evidencia inicial: `schema.prisma` válido; DB dev con 2 migraciones viejas 
 L5: U1 hecho. Se quitó `@@unique([userAId, userBId])` de `CoupleLink`; baseline `20261106134500_init` generado desde vacío (779 líneas) más SQL crudo (93 líneas): extensiones, `cofi_unaccent`, CHECKs, parciales y GIN/trigram. Se eliminaron las 2 migraciones viejas. PRD §2.2 y §2.4 corregidos.
 
 L6: U2 hecho. RED observado: 11/11 tests fallaban con `relation "MerchantStaff" does not exist` contra el esquema viejo. GREEN contra `cofi_rutas_v2_test`: 11/11 constraints/FTS y 40/40 unit. `pnpm test` ahora encadena unit + DB; CI agrega Postgres 16, `prisma validate` y `migrate deploy`. El reset de la DB dev queda pendiente de consentimiento explícito del guard de Prisma 7.
+
+L7: U3 hecho. Investigación con Restaurants10 (DuckDuckGo HTML como índice): 22 cafeterías reales de Oruro con dirección y coordenadas tomadas de la ficha de origen, `sourceUrl` por registro en `prisma/seed-data/cafes.json`. Horarios de Picasso y Café Roma salen de la fuente; el resto son horarios y menús representativos declarados en `dataNote`. 6 categorías, 5 tags, 154 ítems de menú (plantillas representativas + un ítem de firma por local) y 133 horarios. RED: `Cannot find module '../../prisma/seed'`. GREEN: 2/2 tests de seed; suite total 40 unit + 13 DB. CLI `pnpm db:seed` dos veces seguidas devuelve los mismos conteos. `prisma/seed.ts` y `prisma/seed-data` se agregaron al lint.
