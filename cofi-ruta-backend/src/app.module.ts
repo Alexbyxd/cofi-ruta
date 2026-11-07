@@ -8,13 +8,7 @@ import { CafesModule } from './cafes/cafes.module';
 import { GroupsModule } from './groups/groups.module';
 
 @Module({
-  imports: [
-    PrismaModule,
-    AuthModule,
-    PairingModule,
-    GroupsModule,
-    CafesModule,
-  ],
+  imports: [PrismaModule, AuthModule, PairingModule, GroupsModule, CafesModule],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -87,13 +87,13 @@ S10 — Baseline y seed
 |----|-------|-------|-------|--------|
 | T1 | Crear feature document con decisiones cerradas | S1–S10 | docs | hecho |
 | T2 | Reescribir `prisma/schema.prisma` completo | S1–S9 | inline | hecho |
-| T3 | Agregar SQL crudo: extensiones, CHECKs, índices parciales y búsqueda | S4, S9 | inline | pendiente |
-| T4 | Baseline: borrar migraciones viejas, reset y migración `init` | S10 | inline | pendiente |
-| T5 | Refactor `auth` al nuevo `Role`/`Session`/`Account` | S1 | inline | pendiente |
-| T6 | Refactor `pairing` a tokens hasheados y `GroupRoom` nuevo | S5 | inline | pendiente |
-| T7 | Refactor `cafes` a `Category`/`MenuItem`/`OpeningHours`/tags | S2, S3 | inline | pendiente |
-| T8 | Seed de categorías, tags y cafeterías de Oruro | S10 | inline | pendiente |
-| T9 | Tests de constraints, auth, pairing y catálogo | S1–S5, S9 | inline | pendiente |
+| T3 | Agregar SQL crudo: extensiones, CHECKs, índices parciales y búsqueda | S4, S9 | inline | hecho |
+| T4 | Baseline: borrar migraciones viejas, reset y migración `init` | S10 | inline | en curso (baseline creado; reset dev pendiente) |
+| T5 | Refactor `auth` al nuevo `Role`/`Session`/`Account` | S1 | inline | hecho |
+| T6 | Refactor `pairing` a tokens hasheados y `GroupRoom` nuevo | S5 | inline | hecho |
+| T7 | Refactor `cafes` a `Category`/`MenuItem`/`OpeningHours`/tags | S2, S3 | inline | hecho |
+| T8 | Seed de categorías, tags y cafeterías de Oruro | S10 | inline | hecho |
+| T9 | Tests de constraints, auth, pairing y catálogo | S1–S5, S9 | inline | hecho |
 | T10 | Módulo de visitas, PIN y verificación | S6 | inline | futuro |
 | T11 | Módulo de reseñas, reputación y moderación | S7 | inline | futuro |
 | T12 | Módulo de matcher y salas grupales | S8 | inline | futuro |
@@ -119,3 +119,5 @@ L7: Bloque 5 cerrado. Swipe sobre `CoffeeShop` con ítem destacado; matcher grup
 L8: Próximo work unit: schema + validación. La migración baseline y el refactor de `auth`/`pairing`/`cafes` van juntos, porque aplicar el baseline deja el backend sin compilar hasta adaptar los tres módulos.
 
 L9: Schema validado con Prisma 7.10.1 y cliente Prisma generado. PRD técnico actualizado a v2.0.0: inventario de los 27 modelos y 15 enums, invariantes SQL, módulos, flujos, vistas por rol (cliente, dúo, grupo, merchant y admin), contrato REST, requisitos no funcionales y roadmap F0–F6. T2 cerrado; el siguiente work unit es la Fase 0 (T3–T9).
+
+L10: Fase 0 cerrada en la rama `feat/fase-0-baseline`. T3: baseline `20261106134500_init` con `unaccent`, `pg_trgm`, `cofi_unaccent` IMMUTABLE, CHECKs, índices únicos parciales y GIN FTS/trigram. T4: migraciones viejas eliminadas y baseline aplicado en la DB de test; el reset de `cofi_rutas_db` queda pendiente de consentimiento explícito por el guard de Prisma 7. T5–T7: `auth`, `pairing` y `cafes` reescritos al modelo v2. T8: seed idempotente de 22 cafeterías de Oruro. T9: 79 tests unit y 46 DB, más smoke API. Gate `prisma validate`, `pnpm test`, `pnpm build` y `pnpm lint` en verde.

@@ -1205,35 +1205,36 @@ F0 ──> F1 ──> F2 ──> F3 ──> F4 ──> F5 ──> F6
 
 ### 10.1. Hecho
 
-- `cofi-ruta-backend/prisma/schema.prisma` reescrito: 27 modelos, 15 enums, 638 líneas; `prisma validate` pasa.
-- Cliente Prisma generado con Prisma 7.10.1 contra el schema nuevo.
+- `cofi-ruta-backend/prisma/schema.prisma` reescrito: 27 modelos, 15 enums; `prisma validate` pasa con Prisma 7.10.1.
 - Decisiones de modelado cerradas y registradas en `odd/tasks/modelo-de-datos.md` (S1–S10, T1–T14).
-- Este PRD actualizado a v2.0.0 con el modelo real, roles, flujos, vistas y roadmap.
+- Migración baseline única `prisma/migrations/20261106134500_init` con extensiones `unaccent`/`pg_trgm`, `cofi_unaccent`, CHECKs, índices únicos parciales y GIN de FTS/trigram. Las migraciones viejas se eliminaron.
+- Seed idempotente con 22 cafeterías reales de Oruro, 6 categorías, 5 tags, 154 ítems de menú y 133 horarios; `sourceUrl` por local y `dataNote` cuando el menú es representativo.
+- `auth` v2: access JWT de 15 min con `sid`, refresh opaco de 30 días con rotación, sesiones revocables, `/me`, cambio de password y Google solo con correo verificado.
+- `pairing` v2: tokens opacos hasheados de 15 min, claim transaccional, vínculo dúo canónico con un solo `ACTIVE` por usuario e historial de archivados.
+- Grupos: sala con código de 6 caracteres, lobby, expiración configurable, membresía e invitaciones por token.
+- Catálogo público v2 por `slug`: lista paginada de `ACTIVE`, ficha con horarios/tags/menú/stats, menú y reseñas `PUBLISHED` paginadas; decimales como string.
+- Guards `RolesGuard` y `MerchantGuard` con jerarquía `OWNER > MANAGER > STAFF`.
+- Suite de tests: 79 unit + 46 DB, incluidos constraints SQL, auth, pairing, grupos, cafés y seed. CI con Postgres.
+- Gate Fase 0: `prisma validate`, `pnpm test`, `pnpm build`, `pnpm lint` y smoke API en verde.
+- Este PRD actualizado con el modelo real, roles, flujos, vistas y roadmap.
 
-### 10.2. Pendiente inmediato (Fase 0)
+### 10.2. Pendiente inmediato (Fase 1)
 
-- Migración baseline con SQL crudo de la sección 2.4.
-- Seed de categorías, tags y cafeterías.
-- Refactor de `auth`, `pairing` y `cafes` al modelo nuevo.
-- Tests de constraints y de los tres módulos.
+- Adaptar el frontend al contrato v2 (`types/cafes.ts`, `services/cafes.service.ts`, pantallas de catálogo y auth).
+- `openNow`/`nextOpenAt`/`todayHours`, filtro por tags y orden por distancia en el catálogo público.
+- Paneles merchant y admin.
+- Visitas, PIN y verificación; reseñas y moderación; matcher.
 
 ### 10.3. Deuda transitoria conocida
 
-- Las migraciones actuales (`init_module_1_auth`, `add_coffee_shops_and_products`) siguen en el repo y no representan el modelo nuevo.
-- El backend no compila con el cliente nuevo mientras `auth`, `pairing` y `cafes` referencien `Product`, `PairingToken.token` y campos viejos.
 - El frontend mantiene `types/cafes.ts` y `services/cafes.service.ts` con el contrato legacy; se adapta en Fase 1.
-- La DB de desarrollo conserva el esquema de las migraciones viejas; el baseline se aplicará en Fase 0 con reset controlado.
-- No hay tests de constraints SQL todavía; se agregan con el baseline.
+- La DB de desarrollo (`cofi_rutas_db`) conserva el esquema de las migraciones viejas y debe resetearse para aplicar el baseline `init`.
+- El catálogo público de Fase 0 no calcula estado abierto/cerrado ni distancia; esas columnas y filtros quedan para Fase 1.
 
 ### 10.4. Próximo work unit
 
-Cerrar Fase 0 en un solo bloque revisable:
+Fase 1 empieza por adaptar el frontend al contrato v2 y luego agregar `openNow`, tags y distancia al catálogo. Antes de desplegar, resetear la DB de desarrollo con el baseline `init` y correr el seed.
 
-1. T3: SQL crudo de extensiones, CHECKs, índices parciales y GIN.
-2. T4: borrar migraciones viejas y crear `init`.
-3. T5–T7: refactor de `auth`, `pairing` y `cafes`.
-4. T8: seed idempotente.
-5. T9: tests de constraints y módulos.
-6. Gate: `pnpm prisma validate`, `pnpm test`, `pnpm build`.
+> Este PRD no autoriza por sí solo cambios de alcance. Cualquier función nueva se contrasta contra el schema y se agrega como fase o se rechaza explícitamente.
 
 > Este PRD no autoriza por sí solo cambios de alcance. Cualquier función nueva se contrasta contra el schema y se agrega como fase o se rechaza explícitamente.
