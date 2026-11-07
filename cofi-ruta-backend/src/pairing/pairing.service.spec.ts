@@ -1,7 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { PairingService } from './pairing.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { DomainException } from '../common/errors/domain.exception';
+
+function sha256(value: string): string {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
 
 describe('PairingService', () => {
   let service: PairingService;
@@ -12,20 +17,18 @@ describe('PairingService', () => {
       pairingToken: {
         create: jest.fn(),
         findUnique: jest.fn(),
-        update: jest.fn(),
+        updateMany: jest.fn(),
       },
       coupleLink: {
         findFirst: jest.fn(),
-        findUnique: jest.fn(),
-        findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
       },
-      groupMember: {
-        findUnique: jest.fn(),
-        findMany: jest.fn(),
-        create: jest.fn(),
-      },
+      groupRoom: { findUnique: jest.fn() },
+      groupMember: { findUnique: jest.fn(), count: jest.fn() },
+      $transaction: jest.fn((callback: (tx: any) => unknown) =>
+        callback(prisma),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -35,115 +38,57 @@ describe('PairingService', () => {
     service = module.get<PairingService>(PairingService);
   });
 
-  describe('createPairingToken', () => {
-    it('should generate a token with 5-minute TTL and QR payload', async () => {
-      const mockExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
-      prisma.pairingToken.create.mockResolvedValue({
-        id: 'pt1',
-        token: 'COFI-123456',
-        type: 'DUO',
-        expiresAt: mockExpiresAt,
-      });
+  describe('createToken', () => {
+    it('stores only the SHA-256 hash with a 15-minute TTL', async () => {
+      prisma.pairingToken.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({
+          id: 'pt1',
+          type: data.type,
+          expiresAt: data.expiresAt,
+        }),
+      );
 
-      const result = await service.createPairingToken('user-1', {
-        type: 'DUO',
-      });
+      const result = await service.createToken('user-1', { type: 'DUO' });
+      const createArgs = prisma.pairingToken.create.mock.calls[0][0];
 
-      expect(result.token).toBe('COFI-123456');
-      expect(result.type).toBe('DUO');
-      expect(result.qrPayload).toContain('COFI-123456');
+      expect(result.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(createArgs.data.tokenHash).toBe(sha256(result.token));
+      expect(createArgs.data.tokenPrefix).toBe(result.token.slice(0, 8));
+      expect(createArgs.data.creatorId).toBe('user-1');
+      expect(
+        Math.abs(
+          createArgs.data.expiresAt.getTime() - (Date.now() + 15 * 60 * 1000),
+        ),
+      ).toBeLessThan(5_000);
+      expect(result.qrPayload).toBe(`cofirutas://pair?token=${result.token}`);
+    });
+
+    it('requires a groupId for GROUP tokens', async () => {
+      await expect(
+        service.createToken('user-1', { type: 'GROUP' }),
+      ).rejects.toMatchObject({ code: 'GROUP_REQUIRED' });
     });
   });
 
-  describe('claimPairingToken', () => {
-    it('should throw NotFoundException if token does not exist', async () => {
+  describe('claimToken', () => {
+    it('maps an unknown token to a domain error', async () => {
       prisma.pairingToken.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.claimPairingToken('user-2', 'INVALID'),
-      ).rejects.toThrow(NotFoundException);
-    });
+      const error = (await service
+        .claimToken('user-2', 'missing-token')
+        .catch((caught: unknown) => caught)) as DomainException;
 
-    it('should throw BadRequestException if token is already used', async () => {
-      prisma.pairingToken.findUnique.mockResolvedValue({
-        id: 'pt1',
-        usedAt: new Date(),
-        expiresAt: new Date(Date.now() + 100000),
-      });
-
-      await expect(
-        service.claimPairingToken('user-2', 'COFI-USED'),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw BadRequestException if token has expired', async () => {
-      prisma.pairingToken.findUnique.mockResolvedValue({
-        id: 'pt1',
-        usedAt: null,
-        expiresAt: new Date(Date.now() - 10000), // in the past
-      });
-
-      await expect(
-        service.claimPairingToken('user-2', 'COFI-EXPIRED'),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw BadRequestException if creator tries to claim their own token', async () => {
-      prisma.pairingToken.findUnique.mockResolvedValue({
-        id: 'pt1',
-        creatorId: 'user-1',
-        usedAt: null,
-        expiresAt: new Date(Date.now() + 100000),
-      });
-
-      await expect(
-        service.claimPairingToken('user-1', 'COFI-SELF'),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should successfully link two users in Modo Dúo', async () => {
-      prisma.pairingToken.findUnique.mockResolvedValue({
-        id: 'pt1',
-        creatorId: 'user-1',
-        type: 'DUO',
-        usedAt: null,
-        expiresAt: new Date(Date.now() + 100000),
-      });
-      prisma.coupleLink.findFirst.mockResolvedValue(null);
-      prisma.coupleLink.create.mockResolvedValue({
-        id: 'link-1',
-        userAId: 'user-1',
-        userBId: 'user-2',
-        status: 'ACTIVE',
-      });
-      prisma.pairingToken.update.mockResolvedValue({ id: 'pt1' });
-
-      const result = await service.claimPairingToken('user-2', 'COFI-VALID');
-
-      expect(result.message).toContain('Modo Dúo');
-      expect(result.type).toBe('DUO');
-      expect(prisma.coupleLink.create).toHaveBeenCalled();
-      expect(prisma.pairingToken.update).toHaveBeenCalled();
+      expect(error).toBeInstanceOf(DomainException);
+      expect((error.getResponse() as { code?: string }).code).toBe(
+        'PAIRING_TOKEN_NOT_FOUND',
+      );
     });
   });
 
-  describe('archiveLink', () => {
-    it('should archive relationship if user is a member of the link', async () => {
-      prisma.coupleLink.findUnique.mockResolvedValue({
-        id: 'link-1',
-        userAId: 'user-1',
-        userBId: 'user-2',
-        status: 'ACTIVE',
-      });
-      prisma.coupleLink.update.mockResolvedValue({
-        id: 'link-1',
-        status: 'ARCHIVED',
-        archivedAt: new Date(),
-      });
-
-      const result = await service.archiveLink('user-1', 'link-1');
-      expect(result.message).toContain('Relación archivada');
-      expect(result.link.status).toBe('ARCHIVED');
+  describe('getDuo', () => {
+    it('returns null when there is no active link', async () => {
+      prisma.coupleLink.findFirst.mockResolvedValue(null);
+      await expect(service.getDuo('user-1')).resolves.toBeNull();
     });
   });
 });

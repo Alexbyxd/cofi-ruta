@@ -18,14 +18,13 @@ describe('PairingController', () => {
 
   beforeEach(async () => {
     pairingService = {
-      createPairingToken: jest
+      createToken: jest
         .fn()
-        .mockResolvedValue({ token: 'COFI-123456', qrPayload: '{}' }),
-      claimPairingToken: jest
-        .fn()
-        .mockResolvedValue({ message: 'Successfully paired' }),
-      listMyLinks: jest.fn().mockResolvedValue({ duoLinks: [], groups: [] }),
-      archiveLink: jest.fn().mockResolvedValue({ message: 'Archived' }),
+        .mockResolvedValue({ token: 'opaque-token', qrPayload: 'qr' }),
+      claimToken: jest.fn().mockResolvedValue({ message: 'Emparejado' }),
+      getDuo: jest.fn().mockResolvedValue({ id: 'link-1' }),
+      archiveDuo: jest.fn().mockResolvedValue({ message: 'Archivado' }),
+      revokeToken: jest.fn().mockResolvedValue({ revoked: 1 }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -40,32 +39,38 @@ describe('PairingController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('should generate QR token', async () => {
-    const res = await controller.createQrToken('u1', { type: 'DUO' });
-    expect(res.token).toBe('COFI-123456');
-    expect(pairingService.createPairingToken).toHaveBeenCalledWith('u1', {
+  it('should create a pairing token', async () => {
+    const res = await controller.createToken('u1', { type: 'DUO' });
+    expect(res.token).toBe('opaque-token');
+    expect(pairingService.createToken).toHaveBeenCalledWith('u1', {
       type: 'DUO',
     });
   });
 
-  it('should claim pairing token', async () => {
-    const res = await controller.claimToken('u2', { token: 'COFI-123456' });
-    expect(res.message).toBe('Successfully paired');
-    expect(pairingService.claimPairingToken).toHaveBeenCalledWith(
+  it('should claim a pairing token', async () => {
+    const res = await controller.claimToken('u2', { token: 'opaque-token' });
+    expect(res.message).toBe('Emparejado');
+    expect(pairingService.claimToken).toHaveBeenCalledWith(
       'u2',
-      'COFI-123456',
+      'opaque-token',
     );
   });
 
-  it('should list my links', async () => {
-    const res = await controller.getMyLinks('u1');
-    expect(res.duoLinks).toBeDefined();
-    expect(pairingService.listMyLinks).toHaveBeenCalledWith('u1');
+  it('should return the active duo', async () => {
+    const res = await controller.getDuo('u1');
+    expect(res.id).toBe('link-1');
+    expect(pairingService.getDuo).toHaveBeenCalledWith('u1');
   });
 
-  it('should archive link', async () => {
-    const res = await controller.archiveLink('u1', 'link-1');
-    expect(res.message).toBe('Archived');
-    expect(pairingService.archiveLink).toHaveBeenCalledWith('u1', 'link-1');
+  it('should archive the active duo', async () => {
+    const res = await controller.archiveDuo('u1');
+    expect(res.message).toBe('Archivado');
+    expect(pairingService.archiveDuo).toHaveBeenCalledWith('u1');
+  });
+
+  it('should revoke a pairing token', async () => {
+    const res = await controller.revokeToken('u1', 'token-1');
+    expect(res.revoked).toBe(1);
+    expect(pairingService.revokeToken).toHaveBeenCalledWith('u1', 'token-1');
   });
 });
