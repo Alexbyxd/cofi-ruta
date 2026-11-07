@@ -85,7 +85,7 @@ S12 — Fuera de alcance
 | U5 | Guards de rol y merchant | S7 | inline | hecho |
 | U6 | Dúo (tokens hasheados, vínculo canónico) | S8 | inline | hecho |
 | U7 | Grupos (código, lobby, expiración) | S9 | inline | hecho |
-| U8 | Catálogo público v2 | S10 | inline | pendiente |
+| U8 | Catálogo público v2 | S10 | inline | hecho |
 | U9 | Gate final, smoke y cierre documental | S11 | inline | pendiente |
 
 ## Log
@@ -111,3 +111,5 @@ L9: U5 hecho. `RolesGuard` + `@Roles(...)` valida el rol global del `User` auten
 L10: U6 hecho. `PairingService` emite tokens opacos de 32 bytes base64url con TTL de 15 min, guarda solo `tokenHash` SHA-256 y `tokenPrefix`, y devuelve el token plano una única vez con QR `cofirutas://pair?token=<token>`. El claim corre en transacción, consume el token con `updateMany` condicional (idempotencia ante carreras), rechaza auto-invitación, tokens consumidos/revocados/vencidos y cualquier cuenta con vínculo `ACTIVE`, ordena el par canónicamente y crea un vínculo nuevo (nunca reactiva uno archivado). `GET /pairing/duo` devuelve la pareja con datos públicos y `DELETE /pairing/duo` archiva. `DELETE /pairing/tokens/:id` revoca. El claim de tokens `GROUP` valida sala abierta/vigente/no llena y crea membresía. RED: métodos `createToken`/`claimToken`/`getDuo`/`archiveDuo` inexistentes; GREEN: 9/9 DB y 10/10 unit de pairing.
 
 L11: U7 hecho. Nuevo `GroupsModule`: `POST /groups` genera código único de 6 caracteres con alfabeto sin `0/O/1/I` (reintenta ante colisión), `maxMembers` 2–12 (default 12), expiración 1–24 h (default 24 h) y crea al host como `HOST` en transacción. `POST /groups/join` acepta `code` o `PairingToken` GROUP, normaliza el código a mayúsculas y valida sala `OPEN`, vigente, no llena y no miembro; el token reutiliza el claim transaccional de U6. `GET /groups/:id` solo miembros, `GET /groups/me`, `POST /groups/:id/leave` (el host cierra la sala), `POST /groups/:id/close` solo host y `POST /groups/:id/invites`. RED: `Cannot find module '../../src/groups/groups.service'`; GREEN: 9/9 DB y 7/7 unit de grupos.
+
+L12: U8 hecho. `CafesService` v2 reemplaza el catálogo legacy de `Product`: `listCafes` filtra solo `ACTIVE`, acepta `page`/`limit` (máx. 100, default 20), `neighborhood`, `q` y `order=rating|name`, y devuelve `{ data, meta }`; `getCafeBySlug` arma ficha con horarios (`HH:MM`), `SpecialHours`, tags, menú agrupado por categoría, stats denormalizados y las 3 últimas reseñas `PUBLISHED`; `getMenu` y `getReviews` (paginado) existen como endpoints separados. Todos los decimales salen como string: coordenadas 6, precios 2, rating de reseña 1 y `averageRating` 2. DTOs Zod estrictos rechazan `openNow`, tags y distancia. Slug inexistente o no `ACTIVE` → `CAFE_NOT_FOUND`. RED: 1/4 DB fallaba por stats; GREEN: 4/4 DB y 8/8 unit de cafés. Suite total 79 unit + 46 DB; `pnpm build`, `pnpm lint` y `prisma validate` pasan.

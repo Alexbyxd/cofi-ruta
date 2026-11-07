@@ -1,16 +1,15 @@
-import { Controller, Get, Query, Param } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { CafesService } from './cafes.service';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import {
+  cafeSlugParamSchema,
   listCafesQuerySchema,
-  cafeIdParamSchema,
-  listCafesResponseSchema,
-  coffeeShopDetailSchema,
+  reviewPaginationQuerySchema,
 } from './dto/cafes.dto';
 import type {
+  CafeSlugParamDto,
   ListCafesQueryDto,
-  ListCafesResponseDto,
-  CoffeeShopDetailDto,
+  ReviewPaginationQueryDto,
 } from './dto/cafes.dto';
 
 @Controller('cafes')
@@ -21,16 +20,33 @@ export class CafesController {
   async list(
     @Query(new ZodValidationPipe(listCafesQuerySchema))
     query: ListCafesQueryDto,
-  ): Promise<ListCafesResponseDto> {
-    const result = await this.cafesService.listCafes(query);
-    return listCafesResponseSchema.parse(result);
+  ) {
+    return this.cafesService.listCafes(query);
   }
 
-  @Get(':id')
-  async getById(
-    @Param(new ZodValidationPipe(cafeIdParamSchema)) params: { id: string },
-  ): Promise<CoffeeShopDetailDto> {
-    const cafe = await this.cafesService.getCafeById(params.id);
-    return coffeeShopDetailSchema.parse(cafe);
+  @Get(':slug/menu')
+  async getMenu(
+    @Param(new ZodValidationPipe(cafeSlugParamSchema))
+    params: CafeSlugParamDto,
+  ) {
+    return { data: await this.cafesService.getMenu(params.slug) };
+  }
+
+  @Get(':slug/reviews')
+  async getReviews(
+    @Param(new ZodValidationPipe(cafeSlugParamSchema))
+    params: CafeSlugParamDto,
+    @Query(new ZodValidationPipe(reviewPaginationQuerySchema))
+    query: ReviewPaginationQueryDto,
+  ) {
+    return this.cafesService.getReviews(params.slug, query);
+  }
+
+  @Get(':slug')
+  async getBySlug(
+    @Param(new ZodValidationPipe(cafeSlugParamSchema))
+    params: CafeSlugParamDto,
+  ) {
+    return { data: await this.cafesService.getCafeBySlug(params.slug) };
   }
 }
