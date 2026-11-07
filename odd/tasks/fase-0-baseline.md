@@ -86,7 +86,7 @@ S12 — Fuera de alcance
 | U6 | Dúo (tokens hasheados, vínculo canónico) | S8 | inline | hecho |
 | U7 | Grupos (código, lobby, expiración) | S9 | inline | hecho |
 | U8 | Catálogo público v2 | S10 | inline | hecho |
-| U9 | Gate final, smoke y cierre documental | S11 | inline | pendiente |
+| U9 | Gate final, smoke y cierre documental | S11 | inline | hecho |
 
 ## Log
 
@@ -113,3 +113,5 @@ L10: U6 hecho. `PairingService` emite tokens opacos de 32 bytes base64url con TT
 L11: U7 hecho. Nuevo `GroupsModule`: `POST /groups` genera código único de 6 caracteres con alfabeto sin `0/O/1/I` (reintenta ante colisión), `maxMembers` 2–12 (default 12), expiración 1–24 h (default 24 h) y crea al host como `HOST` en transacción. `POST /groups/join` acepta `code` o `PairingToken` GROUP, normaliza el código a mayúsculas y valida sala `OPEN`, vigente, no llena y no miembro; el token reutiliza el claim transaccional de U6. `GET /groups/:id` solo miembros, `GET /groups/me`, `POST /groups/:id/leave` (el host cierra la sala), `POST /groups/:id/close` solo host y `POST /groups/:id/invites`. RED: `Cannot find module '../../src/groups/groups.service'`; GREEN: 9/9 DB y 7/7 unit de grupos.
 
 L12: U8 hecho. `CafesService` v2 reemplaza el catálogo legacy de `Product`: `listCafes` filtra solo `ACTIVE`, acepta `page`/`limit` (máx. 100, default 20), `neighborhood`, `q` y `order=rating|name`, y devuelve `{ data, meta }`; `getCafeBySlug` arma ficha con horarios (`HH:MM`), `SpecialHours`, tags, menú agrupado por categoría, stats denormalizados y las 3 últimas reseñas `PUBLISHED`; `getMenu` y `getReviews` (paginado) existen como endpoints separados. Todos los decimales salen como string: coordenadas 6, precios 2, rating de reseña 1 y `averageRating` 2. DTOs Zod estrictos rechazan `openNow`, tags y distancia. Slug inexistente o no `ACTIVE` → `CAFE_NOT_FOUND`. RED: 1/4 DB fallaba por stats; GREEN: 4/4 DB y 8/8 unit de cafés. Suite total 79 unit + 46 DB; `pnpm build`, `pnpm lint` y `prisma validate` pasan.
+
+L13: U9 hecho. Gate completo: `prisma validate` OK, 79/79 unit, 46/46 DB, `pnpm build` OK y `pnpm lint` OK. Se corrigió `tsconfig.build.json` excluyendo `prisma.config.ts`, porque el build emitía `dist/src/main.js` y rompía `start:prod` (`node dist/main`). Smoke API contra Postgres con el baseline: register, login, refresh, logout, `/me`, listado de 23 cafés ACTIVE, ficha/menú/reseñas por slug, rechazo 400 de `openNow`, token dúo reclamado por la segunda cuenta y grupo creado/unido por código. Seed CLI dos veces seguidas con los mismos conteos (22 cafeterías, 154 ítems, 133 horarios, 6 categorías, 5 tags). Con consentimiento explícito nuevo se reseteó `cofi_rutas_db` con `prisma migrate reset --force`, se aplicó `20261106134500_init` y se corrió el seed dos veces; el reset no ejecutó el seed automáticamente y se lanzó `pnpm db:seed` a mano. `PRD-tecnico.md` §10 y `odd/tasks/modelo-de-datos.md` (T3–T9, L10) actualizados.
