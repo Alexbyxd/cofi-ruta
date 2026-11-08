@@ -2,8 +2,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import * as bcrypt from 'bcrypt';
 import * as dotenv from 'dotenv';
 import { Pool } from 'pg';
+import { BCRYPT_ROUNDS } from '../src/auth/auth.constants';
 import {
   cafesSchema,
   categories,
@@ -21,9 +23,54 @@ export interface SeedSummary {
   openingHours: number;
   menuItems: number;
   coffeeShopTags: number;
+  superAdminEmail: string | null;
 }
 
 const CAFES_FILE = join(__dirname, 'seed-data', 'cafes.json');
+
+const DEFAULT_SUPERADMIN_EMAIL = 'superadmin@cofirutas.bo';
+const DEFAULT_DEV_SUPERADMIN_PASSWORD = 'CofiRutas2026!';
+
+/**
+ * Crea (o reafirma) el usuario global `SUPERADMIN` usado para probar los
+ * flujos de administración. Es idempotente: reejecutar el seed no duplica.
+ *
+ * - `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` permiten configurarlo.
+ * - En producción no se crea una contraseña conocida si no se configuró una.
+ */
+export async function seedSuperAdmin(
+  prisma: PrismaClient,
+): Promise<{ email: string } | null> {
+  const email = (process.env.SUPERADMIN_EMAIL ?? DEFAULT_SUPERADMIN_EMAIL)
+    .toLowerCase()
+    .trim();
+
+  const configuredPassword = process.env.SUPERADMIN_PASSWORD;
+  if (!configuredPassword && process.env.NODE_ENV === 'production') {
+    return null;
+  }
+
+  const password = configuredPassword ?? DEFAULT_DEV_SUPERADMIN_PASSWORD;
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+  const user = await prisma.user.upsert({
+    where: { email },
+    update: {
+      role: 'SUPERADMIN',
+      passwordHash,
+      isActive: true,
+    },
+    create: {
+      email,
+      passwordHash,
+      fullName: 'Super Administrador CofiRutas',
+      role: 'SUPERADMIN',
+    },
+    select: { email: true },
+  });
+
+  return { email: user.email };
+}
 
 export function loadCafes(): CafeSeed[] {
   const raw: unknown = JSON.parse(readFileSync(CAFES_FILE, 'utf8'));
@@ -48,6 +95,7 @@ function required<T>(map: Map<string, T>, key: string, kind: string): T {
 }
 
 export async function seedDatabase(prisma: PrismaClient): Promise<SeedSummary> {
+  const superAdmin = await seedSuperAdmin(prisma);
   const cafes = loadCafes();
 
   const categoryIds = new Map<string, string>();
@@ -141,6 +189,7 @@ export async function seedDatabase(prisma: PrismaClient): Promise<SeedSummary> {
     openingHours: await prisma.openingHours.count(),
     menuItems: await prisma.menuItem.count(),
     coffeeShopTags: await prisma.coffeeShopTag.count(),
+    superAdminEmail: superAdmin?.email ?? null,
   };
 }
 
@@ -169,6 +218,9 @@ async function main(): Promise<void> {
       `Seed listo: ${summary.coffeeShops} cafeterías, ${summary.menuItems} ítems de menú, ` +
         `${summary.openingHours} horarios, ${summary.categories} categorías y ${summary.tags} tags.`,
     );
+    if (summary.superAdminEmail) {
+      console.log(`SuperAdmin listo: ${summary.superAdminEmail}`);
+    }
   } finally {
     await prisma.$disconnect();
     await pool.end();

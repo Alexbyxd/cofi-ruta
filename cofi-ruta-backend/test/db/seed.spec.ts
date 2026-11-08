@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import { Pool } from 'pg';
 import { createTestPrisma, truncateAll } from './helpers';
 import { seedDatabase } from '../../prisma/seed';
@@ -36,6 +37,42 @@ describe('Seed idempotente (Fase 0)', () => {
     expect(await prisma.openingHours.count()).toBe(first.openingHours);
     expect(await prisma.menuItem.count()).toBe(first.menuItems);
     expect(await prisma.coffeeShopTag.count()).toBe(first.coffeeShopTags);
+  });
+
+  it('creates an idempotent SUPERADMIN user with a working password', async () => {
+    const previousEmail = process.env.SUPERADMIN_EMAIL;
+    const previousPassword = process.env.SUPERADMIN_PASSWORD;
+    process.env.SUPERADMIN_EMAIL = 'admin-seed@cofi.test';
+    process.env.SUPERADMIN_PASSWORD = 'seed-password-123';
+
+    try {
+      const first = await seedDatabase(prisma);
+      const second = await seedDatabase(prisma);
+
+      expect(first.superAdminEmail).toBe('admin-seed@cofi.test');
+      expect(second.superAdminEmail).toBe('admin-seed@cofi.test');
+
+      const admins = await prisma.user.findMany({
+        where: { role: 'SUPERADMIN' },
+      });
+
+      expect(admins).toHaveLength(1);
+      expect(admins[0].isActive).toBe(true);
+      expect(
+        await bcrypt.compare('seed-password-123', admins[0].passwordHash!),
+      ).toBe(true);
+    } finally {
+      if (previousEmail === undefined) {
+        delete process.env.SUPERADMIN_EMAIL;
+      } else {
+        process.env.SUPERADMIN_EMAIL = previousEmail;
+      }
+      if (previousPassword === undefined) {
+        delete process.env.SUPERADMIN_PASSWORD;
+      } else {
+        process.env.SUPERADMIN_PASSWORD = previousPassword;
+      }
+    }
   });
 
   it('creates every cafe as ACTIVE with hours, coordinates and a menu', async () => {
