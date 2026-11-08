@@ -49,6 +49,19 @@ export const authErrors = {
       'GOOGLE_EMAIL_NOT_VERIFIED',
       'Google no confirmó que el correo electrónico sea verificado',
     ),
+  googleAccountNotRegistered: (signupToken: string) =>
+    new DomainException(
+      409,
+      'GOOGLE_ACCOUNT_NOT_REGISTERED',
+      'Tu cuenta de Google no está registrada en CofiRutas',
+      { signupToken },
+    ),
+  googleSignupInvalid: () =>
+    new DomainException(
+      400,
+      'GOOGLE_SIGNUP_INVALID',
+      'La solicitud de registro con Google expiró o no es válida',
+    ),
   forbidden: () =>
     new DomainException(
       403,

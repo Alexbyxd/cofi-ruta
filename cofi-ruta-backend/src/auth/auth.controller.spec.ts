@@ -145,4 +145,83 @@ describe('AuthController', () => {
     expect(res.message).toBeTruthy();
     expect(authService.revokeSession).toHaveBeenCalledWith('u1', 's1');
   });
+
+  it('should register a Google account only with an explicit signup token', async () => {
+    authService.registerWithGoogle = jest.fn().mockResolvedValue({
+      user: { id: 'u1' },
+      accessToken: 'at',
+      refreshToken: 'rt',
+    });
+
+    const res = await controller.googleRegister(
+      { signupToken: 'tok-123' },
+      'jest-agent',
+      '127.0.0.1',
+    );
+
+    expect(res.accessToken).toBe('at');
+    expect(authService.registerWithGoogle).toHaveBeenCalledWith('tok-123', {
+      userAgent: 'jest-agent',
+      ipAddress: '127.0.0.1',
+    });
+  });
+
+  describe('google OAuth callback', () => {
+    function mockResponse() {
+      const res = {
+        set: jest.fn(),
+        status: jest.fn(),
+        send: jest.fn(),
+      };
+      res.status.mockReturnValue(res);
+      return res;
+    }
+
+    it('stores the pending signup draft and escapes script-breaking data', () => {
+      const res = mockResponse();
+
+      controller.googleAuthCallback(
+        {
+          user: {
+            status: 'signup_required',
+            signupToken: 'tok-123',
+            email: 'x@cofi.com',
+            fullName: '</script><script>alert(1)</script>',
+            avatarUrl: null,
+          },
+        } as never,
+        res as never,
+      );
+
+      const html = res.send.mock.calls[0][0] as string;
+
+      expect(html).toContain('cofi_google_signup');
+      expect(html).toContain('tok-123');
+      expect(html).not.toContain('</script><script>alert(1)');
+      expect(html).toContain('\\u003c/script');
+    });
+
+    it('stores the session tokens for an authenticated result', () => {
+      const res = mockResponse();
+
+      controller.googleAuthCallback(
+        {
+          user: {
+            accessToken: 'at',
+            refreshToken: 'rt',
+            user: { id: 'u1', email: 'x@cofi.com', fullName: 'X' },
+          },
+        } as never,
+        res as never,
+      );
+
+      const html = res.send.mock.calls[0][0] as string;
+
+      expect(html).toContain(
+        "sessionStorage.setItem('cofi_google_accessToken'",
+      );
+      expect(html).toContain('at');
+      expect(html).not.toContain('cofi_google_signup');
+    });
+  });
 });

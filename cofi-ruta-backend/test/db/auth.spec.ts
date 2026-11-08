@@ -65,6 +65,7 @@ function verifyJwt<T>(token: string): T {
 const fakeJwtService = {
   signAsync: (payload: Record<string, unknown>) =>
     Promise.resolve(signJwt(payload)),
+  verifyAsync: (token: string) => Promise.resolve(verifyJwt(token)),
 } as unknown as JwtService;
 
 async function captureError(
@@ -328,7 +329,7 @@ describe('Auth (Fase 0)', () => {
     expect(updated).not.toHaveProperty('passwordHash');
   });
 
-  it('links a verified Google account and rejects an unverified email', async () => {
+  it('requires explicit consent before creating a Google account', async () => {
     const dto = credentials();
 
     const rejected = await captureError(
@@ -343,14 +344,26 @@ describe('Auth (Fase 0)', () => {
     expect(await prisma.user.count()).toBe(0);
 
     const googleId = `google-${uniqueSuffix()}`;
-    const linked = await service.googleLogin({
-      googleId,
-      email: dto.email,
-      emailVerified: true,
-      fullName: 'Google Verificado',
-      avatarUrl: 'https://example.com/google.png',
-    });
-    expect(linked.user.email).toBe(dto.email.toLowerCase());
+    const needsConsent = await captureError(
+      service.googleLogin({
+        googleId,
+        email: dto.email,
+        emailVerified: true,
+        fullName: 'Google Verificado',
+        avatarUrl: 'https://example.com/google.png',
+      }),
+    );
+    expect(codeOf(needsConsent)).toBe('GOOGLE_ACCOUNT_NOT_REGISTERED');
+    expect(await prisma.user.count()).toBe(0);
+
+    const body = needsConsent.getResponse() as {
+      details: { signupToken: string };
+    };
+    const registered = await service.registerWithGoogle(
+      body.details.signupToken,
+    );
+
+    expect(registered.user.email).toBe(dto.email.toLowerCase());
     expect(
       await prisma.account.count({
         where: { provider: 'google', providerAccountId: googleId },
@@ -363,7 +376,7 @@ describe('Auth (Fase 0)', () => {
       emailVerified: true,
       fullName: 'Google Verificado',
     });
-    expect(again.user.id).toBe(linked.user.id);
+    expect(again.user.id).toBe(registered.user.id);
     expect(await prisma.user.count()).toBe(1);
   });
 

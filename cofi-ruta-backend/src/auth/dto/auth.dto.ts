@@ -22,6 +22,15 @@ export const loginSchema = z.object({
 
 export type LoginDto = z.infer<typeof loginSchema>;
 
+export const googleSignupSchema = z.object({
+  signupToken: z
+    .string()
+    .min(1, 'El token de registro con Google es requerido')
+    .trim(),
+});
+
+export type GoogleSignupDto = z.infer<typeof googleSignupSchema>;
+
 export const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1, 'El token de refresco es requerido').trim(),
 });

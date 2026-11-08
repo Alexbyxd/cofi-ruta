@@ -32,6 +32,17 @@ export interface GoogleLoginProfile {
   avatarUrl?: string;
 }
 
+const GOOGLE_SIGNUP_TOKEN_PURPOSE = 'google_signup';
+const GOOGLE_SIGNUP_TOKEN_EXPIRES_IN = '10m';
+
+export interface GoogleSignupPayload {
+  purpose: typeof GOOGLE_SIGNUP_TOKEN_PURPOSE;
+  googleId: string;
+  email: string;
+  fullName: string;
+  avatarUrl: string | null;
+}
+
 export interface PublicUser {
   id: string;
   email: string;
@@ -416,6 +427,69 @@ export class AuthService {
     return { message: 'Sesión revocada' };
   }
 
+  private async createGoogleSignupToken(
+    profile: GoogleLoginProfile,
+  ): Promise<string> {
+    return this.jwtService.signAsync(
+      {
+        purpose: GOOGLE_SIGNUP_TOKEN_PURPOSE,
+        googleId: profile.googleId,
+        email: profile.email.toLowerCase().trim(),
+        fullName: profile.fullName,
+        avatarUrl: profile.avatarUrl ?? null,
+      },
+      {
+        secret: accessTokenSecret(),
+        expiresIn: GOOGLE_SIGNUP_TOKEN_EXPIRES_IN,
+      },
+    );
+  }
+
+  private async verifyGoogleSignupToken(
+    signupToken: string,
+  ): Promise<GoogleSignupPayload> {
+    let payload: GoogleSignupPayload;
+
+    try {
+      payload = await this.jwtService.verifyAsync<GoogleSignupPayload>(
+        signupToken,
+        { secret: accessTokenSecret() },
+      );
+    } catch {
+      throw authErrors.googleSignupInvalid();
+    }
+
+    if (
+      payload?.purpose !== GOOGLE_SIGNUP_TOKEN_PURPOSE ||
+      !payload.googleId ||
+      !payload.email
+    ) {
+      throw authErrors.googleSignupInvalid();
+    }
+
+    return payload;
+  }
+
+  private async linkGoogleAccount(
+    userId: string,
+    googleId: string,
+  ): Promise<void> {
+    try {
+      await this.prisma.account.create({
+        data: {
+          userId,
+          provider: 'google',
+          providerAccountId: googleId,
+        },
+      });
+    } catch (error) {
+      // Otra petición pudo haber vinculado la cuenta en paralelo.
+      if (!isUniqueConstraintError(error)) {
+        throw error;
+      }
+    }
+  }
+
   async googleLogin(profile: GoogleLoginProfile, meta: SessionMeta = {}) {
     const account = await this.prisma.account.findUnique({
       where: {
@@ -438,29 +512,65 @@ export class AuthService {
       user = await this.prisma.user.findUnique({ where: { email } });
 
       if (!user) {
-        user = await this.prisma.user.create({
-          data: {
-            email,
-            fullName: profile.fullName || email,
-            avatarUrl: profile.avatarUrl ?? null,
-          },
-        });
+        // No se crea la cuenta automáticamente: el usuario debe confirmar
+        // explícitamente que quiere registrarse con Google.
+        const signupToken = await this.createGoogleSignupToken(profile);
+        throw authErrors.googleAccountNotRegistered(signupToken);
       }
 
-      try {
-        await this.prisma.account.create({
-          data: {
-            userId: user.id,
-            provider: 'google',
-            providerAccountId: profile.googleId,
-          },
-        });
-      } catch (error) {
-        // Otra petición pudo haber vinculado la cuenta en paralelo.
-        if (!isUniqueConstraintError(error)) {
-          throw error;
+      await this.linkGoogleAccount(user.id, profile.googleId);
+    }
+
+    if (!user.isActive) {
+      throw authErrors.accountInactive();
+    }
+
+    const { sessionId, refreshToken } = await this.issueSession(user.id, meta);
+
+    return this.buildAuthResponse(toPublicUser(user), sessionId, refreshToken);
+  }
+
+  async registerWithGoogle(signupToken: string, meta: SessionMeta = {}) {
+    const profile = await this.verifyGoogleSignupToken(signupToken);
+    const email = profile.email.toLowerCase().trim();
+
+    const linkedAccount = await this.prisma.account.findUnique({
+      where: {
+        provider_providerAccountId: {
+          provider: 'google',
+          providerAccountId: profile.googleId,
+        },
+      },
+      include: { user: true },
+    });
+
+    let user = linkedAccount?.user ?? null;
+
+    if (!user) {
+      user = await this.prisma.user.findUnique({ where: { email } });
+
+      if (!user) {
+        try {
+          user = await this.prisma.user.create({
+            data: {
+              email,
+              fullName: profile.fullName || email,
+              avatarUrl: profile.avatarUrl ?? null,
+            },
+          });
+        } catch (error) {
+          if (!isUniqueConstraintError(error)) {
+            throw error;
+          }
+          user = await this.prisma.user.findUnique({ where: { email } });
         }
       }
+
+      if (!user) {
+        throw authErrors.userNotFound();
+      }
+
+      await this.linkGoogleAccount(user.id, profile.googleId);
     }
 
     if (!user.isActive) {

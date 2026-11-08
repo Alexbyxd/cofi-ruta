@@ -2,6 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback } from 'passport-google-oauth20';
 import { AuthService } from '../auth.service';
+import {
+  DomainException,
+  type DomainErrorBody,
+} from '../../common/errors/domain.exception';
 
 export interface GoogleOAuthProfile {
   id: string;
@@ -40,6 +44,25 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       });
       done(null, result);
     } catch (err) {
+      if (err instanceof DomainException) {
+        const body = err.getResponse() as DomainErrorBody;
+        const details = body.details as { signupToken?: string } | undefined;
+
+        if (
+          body.code === 'GOOGLE_ACCOUNT_NOT_REGISTERED' &&
+          details?.signupToken
+        ) {
+          done(null, {
+            status: 'signup_required',
+            signupToken: details.signupToken,
+            email: profile.emails?.[0]?.value || '',
+            fullName: profile.displayName || '',
+            avatarUrl: profile.photos?.[0]?.value ?? null,
+          });
+          return;
+        }
+      }
+
       done(err as Error, false);
     }
   }

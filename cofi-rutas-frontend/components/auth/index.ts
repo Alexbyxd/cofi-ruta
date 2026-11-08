@@ -1,5 +1,6 @@
 export { AuthHeader } from './AuthHeader';
 export { GoogleAuthButton } from './GoogleAuthButton';
+export { GoogleSignupPrompt } from './GoogleSignupPrompt';
 export { BrutalistDivider } from './BrutalistDivider';
 export { AuthModeTabs } from './AuthModeTabs';
 export { SpecialtyChips } from './SpecialtyChips';

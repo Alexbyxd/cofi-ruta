@@ -16,10 +16,52 @@ function navigateTo(url: string, baseUrl: string): void {
   window.location.replace(url);
 }
 
+interface AuthErrorBody {
+  message?: unknown;
+  errors?: unknown;
+}
+
+/**
+ * Extrae el mensaje más útil del cuerpo de error del backend.
+ * El `ZodValidationPipe` responde `{ message: 'La validación falló', errors: [{ field, message }] }`,
+ * así que se prioriza el mensaje específico del primer campo inválido.
+ */
+function extractErrorMessage(data: unknown, fallback: string): string {
+  if (!data || typeof data !== 'object') {
+    return fallback;
+  }
+
+  const body = data as AuthErrorBody;
+
+  if (Array.isArray(body.errors)) {
+    const first = body.errors.find(
+      (item): item is { message: string } =>
+        !!item &&
+        typeof item === 'object' &&
+        typeof (item as { message?: unknown }).message === 'string' &&
+        (item as { message: string }).message.length > 0,
+    );
+    if (first) {
+      return first.message;
+    }
+  }
+
+  if (Array.isArray(body.message)) {
+    return body.message.join(', ');
+  }
+
+  if (typeof body.message === 'string' && body.message.length > 0) {
+    return body.message;
+  }
+
+  return fallback;
+}
+
 export interface IAuthService {
   login(credentials: { email: string; password: string }): Promise<AuthResponse>;
   register(credentials: { email: string; password: string; fullName: string }): Promise<AuthResponse>;
   loginWithGoogle(): void;
+  registerWithGoogle(signupToken: string): Promise<AuthResponse>;
   saveSession(session: AuthResponse): void;
   clearSession(): void;
   getSessionUser(): AuthUser | null;
@@ -46,10 +88,9 @@ export class AuthService implements IAuthService {
     const data = await response.json();
 
     if (!response.ok) {
-      const message = Array.isArray(data.message)
-        ? data.message.join(', ')
-        : data.message || 'Error al iniciar sesión';
-      throw new Error(message);
+      throw new Error(
+        extractErrorMessage(data, 'Error al iniciar sesión'),
+      );
     }
 
     return data as AuthResponse;
@@ -67,10 +108,7 @@ export class AuthService implements IAuthService {
     const data = await response.json();
 
     if (!response.ok) {
-      const message = Array.isArray(data.message)
-        ? data.message.join(', ')
-        : data.message || 'Error al crear la cuenta';
-      throw new Error(message);
+      throw new Error(extractErrorMessage(data, 'Error al crear la cuenta'));
     }
 
     return data as AuthResponse;
@@ -79,6 +117,26 @@ export class AuthService implements IAuthService {
   loginWithGoogle(): void {
     if (typeof window === 'undefined') return;
     navigateTo(`${this.baseUrl}/auth/google`, this.baseUrl);
+  }
+
+  async registerWithGoogle(signupToken: string): Promise<AuthResponse> {
+    const response = await fetch(`${this.baseUrl}/auth/google/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ signupToken }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        extractErrorMessage(data, 'Error al crear la cuenta con Google'),
+      );
+    }
+
+    return data as AuthResponse;
   }
 
   saveSession(session: AuthResponse): void {

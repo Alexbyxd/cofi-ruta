@@ -1,5 +1,6 @@
 import { GoogleStrategy, GoogleOAuthProfile } from './google.strategy';
 import { AuthService } from '../auth.service';
+import { authErrors } from '../auth.errors';
 
 // Mock de passport-google-oauth20 sin invocar el constructor real de Strategy.
 jest.mock('passport-google-oauth20', () => ({
@@ -107,6 +108,27 @@ describe('GoogleStrategy', () => {
       expect(authService.googleLogin).toHaveBeenCalledWith(
         expect.objectContaining({ emailVerified: false }),
       );
+    });
+
+    it('should surface a signup_required result when the account is unknown', async () => {
+      (authService.googleLogin as jest.Mock).mockRejectedValue(
+        authErrors.googleAccountNotRegistered('signup-token-123'),
+      );
+
+      await strategy.validate(
+        'access-token',
+        'refresh-token',
+        profile,
+        mockDone,
+      );
+
+      expect(mockDone).toHaveBeenCalledWith(null, {
+        status: 'signup_required',
+        signupToken: 'signup-token-123',
+        email: 'carlos@cofi.com',
+        fullName: 'Carlos Morales',
+        avatarUrl: 'https://example.com/avatar.jpg',
+      });
     });
 
     it('should pass error to done when googleLogin throws', async () => {

@@ -19,12 +19,20 @@ describe('Frontend Auth Validation Schemas', () => {
       expect(result.success).toBe(false);
     });
 
-    it('should reject password with less than 6 chars', () => {
+    it('should reject an empty password', () => {
+      const result = loginFormSchema.safeParse({
+        email: 'user@cofi.com',
+        password: '   ',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should accept any non-empty password (the backend validates the hash)', () => {
       const result = loginFormSchema.safeParse({
         email: 'user@cofi.com',
         password: '123',
       });
-      expect(result.success).toBe(false);
+      expect(result.success).toBe(true);
     });
   });
 
@@ -43,6 +51,15 @@ describe('Frontend Auth Validation Schemas', () => {
         fullName: 'C',
         email: 'carlos@cofi.com',
         password: 'mypassword',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject a password shorter than 8 chars, matching the backend', () => {
+      const result = registerFormSchema.safeParse({
+        fullName: 'Carlos Sanchez',
+        email: 'carlos@cofi.com',
+        password: 'corta12',
       });
       expect(result.success).toBe(false);
     });

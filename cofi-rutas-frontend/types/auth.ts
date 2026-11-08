@@ -17,6 +17,20 @@ export interface AuthResponse {
   user: AuthUser;
 }
 
+export interface GoogleSignupDraft {
+  signupToken: string;
+  email: string;
+  fullName: string;
+  avatarUrl?: string | null;
+}
+
+export interface GoogleSignupPromptProps {
+  draft: GoogleSignupDraft;
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
 export interface AuthApiError {
   message: string;
   statusCode?: number;
@@ -37,6 +51,7 @@ export interface AuthFormState {
   showPassword: boolean;
   loading: boolean;
   feedback: AuthFeedbackState | null;
+  googleSignup: GoogleSignupDraft | null;
 }
 
 export interface AuthHeaderProps {

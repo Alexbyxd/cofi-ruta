@@ -19,6 +19,7 @@ import type { Request, Response } from 'express';
 import { AuthService, type SessionMeta } from './auth.service';
 import type {
   ChangePasswordDto,
+  GoogleSignupDto,
   LoginDto,
   RefreshTokenDto,
   RegisterDto,
@@ -26,6 +27,7 @@ import type {
 } from './dto/auth.dto';
 import {
   changePasswordSchema,
+  googleSignupSchema,
   loginSchema,
   refreshTokenSchema,
   registerSchema,
@@ -38,7 +40,8 @@ import { validateEnv } from '../config/env.validation';
 
 const env = validateEnv();
 
-interface GoogleAuthResult {
+interface GoogleAuthSuccess {
+  status?: 'authenticated';
   accessToken: string;
   refreshToken: string;
   user: {
@@ -49,6 +52,21 @@ interface GoogleAuthResult {
     role?: string;
     createdAt?: string;
   };
+}
+
+interface GoogleAuthSignupRequired {
+  status: 'signup_required';
+  signupToken: string;
+  email: string;
+  fullName: string;
+  avatarUrl?: string | null;
+}
+
+type GoogleAuthResult = GoogleAuthSuccess | GoogleAuthSignupRequired;
+
+/** Serializa datos para embeberlos en un `<script>` sin permitir `</script>`. */
+function jsonForScript(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
 @Controller('auth')
@@ -118,17 +136,51 @@ export class AuthController {
     // Passport inicia el flujo de OAuth2 y redirige a Google automáticamente.
   }
 
+  @Post('google/register')
+  @HttpCode(HttpStatus.CREATED)
+  async googleRegister(
+    @Body(new ZodValidationPipe(googleSignupSchema)) dto: GoogleSignupDto,
+    @Headers('user-agent') userAgent?: string,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.authService.registerWithGoogle(
+      dto.signupToken,
+      this.meta(userAgent, ipAddress),
+    );
+  }
+
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   googleAuthCallback(
     @Req() req: Request & { user: GoogleAuthResult },
     @Res() res: Response,
   ): void {
-    const { accessToken, refreshToken, user } = req.user;
+    // Passport tipa `req.user` como `Express.User`; en este callback siempre
+    // es el resultado que devuelve `GoogleStrategy.validate`.
+    const result = req.user;
 
-    // Responde con una página HTML mínima que guarda los tokens en
+    // Responde con una página HTML mínima que guarda los datos en
     // sessionStorage (nunca en la URL) y redirige al frontend. Esto evita
     // enviar credenciales por query string y elimina el vector de open redirect.
+    let storageScript: string;
+
+    if (result.status === 'signup_required') {
+      storageScript = `sessionStorage.setItem('cofi_google_signup', ${jsonForScript(
+        {
+          signupToken: result.signupToken,
+          email: result.email,
+          fullName: result.fullName,
+          avatarUrl: result.avatarUrl ?? null,
+        },
+      )});`;
+    } else {
+      storageScript = [
+        `sessionStorage.setItem('cofi_google_accessToken', ${jsonForScript(result.accessToken)});`,
+        `sessionStorage.setItem('cofi_google_refreshToken', ${jsonForScript(result.refreshToken)});`,
+        `sessionStorage.setItem('cofi_google_user', ${jsonForScript(result.user)});`,
+      ].join('\n      ');
+    }
+
     const html = `
 <!DOCTYPE html>
 <html lang="es">
@@ -137,13 +189,11 @@ export class AuthController {
 <script>
   (function () {
     try {
-      sessionStorage.setItem('cofi_google_accessToken', ${JSON.stringify(accessToken)});
-      sessionStorage.setItem('cofi_google_refreshToken', ${JSON.stringify(refreshToken)});
-      sessionStorage.setItem('cofi_google_user', ${JSON.stringify(user)});
+      ${storageScript}
     } catch (e) {
       // sessionStorage no disponible (modo privado, etc.)
     }
-    window.location.replace(${JSON.stringify(env.FRONTEND_URL + '/auth/callback')});
+    window.location.replace(${jsonForScript(env.FRONTEND_URL + '/auth/callback')});
   })();
 </script>
 </body>

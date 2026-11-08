@@ -330,10 +330,32 @@ describe('AuthService', () => {
       expect(prisma.user.create).not.toHaveBeenCalled();
     });
 
-    it('links a verified account and returns tokens', async () => {
+    it('asks for explicit signup instead of creating an unknown verified user', async () => {
       prisma.account.findUnique.mockResolvedValue(null);
       prisma.user.findUnique.mockResolvedValue(null);
-      prisma.user.create.mockResolvedValue(googleUser);
+
+      const error = await service
+        .googleLogin({
+          googleId: 'google-123',
+          email: 'carlos@cofi.com',
+          emailVerified: true,
+          fullName: 'Carlos Morales',
+          avatarUrl: 'https://lh3.googleusercontent.com/a/carlos',
+        })
+        .catch((caught: unknown) => caught);
+
+      expect(codeOf(error)).toBe('GOOGLE_ACCOUNT_NOT_REGISTERED');
+      expect(
+        (error as DomainException).getResponse() as {
+          details?: { signupToken?: string };
+        },
+      ).toMatchObject({ details: { signupToken: 'access-token' } });
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('links a verified account that already exists locally', async () => {
+      prisma.account.findUnique.mockResolvedValue(null);
+      prisma.user.findUnique.mockResolvedValue(googleUser);
       prisma.account.create.mockResolvedValue({ id: 'acct-1' });
       prisma.session.create.mockResolvedValue({ id: 's-google' });
 
@@ -372,6 +394,67 @@ describe('AuthService', () => {
 
       expect(result.user.id).toBe('u1');
       expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('registerWithGoogle', () => {
+    const googleUser = {
+      ...publicUser,
+      email: 'carlos@cofi.com',
+      fullName: 'Carlos Morales',
+      avatarUrl: 'https://lh3.googleusercontent.com/a/carlos',
+      isActive: true,
+    };
+
+    const signupPayload = {
+      purpose: 'google_signup' as const,
+      googleId: 'google-123',
+      email: 'carlos@cofi.com',
+      fullName: 'Carlos Morales',
+      avatarUrl: 'https://lh3.googleusercontent.com/a/carlos',
+    };
+
+    it('creates the user, links the Google account and returns tokens', async () => {
+      jwtService.verifyAsync.mockResolvedValue(signupPayload);
+      prisma.account.findUnique.mockResolvedValue(null);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue(googleUser);
+      prisma.account.create.mockResolvedValue({ id: 'acct-1' });
+      prisma.session.create.mockResolvedValue({ id: 's-google' });
+
+      const result = await service.registerWithGoogle('signup-token');
+
+      expect(jwtService.verifyAsync).toHaveBeenCalledWith('signup-token', {
+        secret: expect.any(String),
+      });
+      expect(prisma.user.create).toHaveBeenCalledWith({
+        data: {
+          email: 'carlos@cofi.com',
+          fullName: 'Carlos Morales',
+          avatarUrl: 'https://lh3.googleusercontent.com/a/carlos',
+        },
+      });
+      expect(prisma.account.create).toHaveBeenCalledWith({
+        data: {
+          userId: 'u1',
+          provider: 'google',
+          providerAccountId: 'google-123',
+        },
+      });
+      expect(result.user.id).toBe('u1');
+      expect(result.accessToken).toBe('access-token');
+    });
+
+    it('rejects an invalid or expired signup token without creating users', async () => {
+      jwtService.verifyAsync.mockRejectedValue(new Error('jwt expired'));
+
+      const error = await service
+        .registerWithGoogle('bad-token')
+        .catch((caught: unknown) => caught);
+
+      expect(codeOf(error)).toBe('GOOGLE_SIGNUP_INVALID');
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(prisma.account.create).not.toHaveBeenCalled();
     });
   });
 });

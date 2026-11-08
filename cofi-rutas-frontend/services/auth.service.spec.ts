@@ -168,4 +168,67 @@ describe('AuthService', () => {
       expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('user');
     });
   });
+
+  describe('registerWithGoogle', () => {
+    it('should post the signup token and return the auth response', async () => {
+      const mockResponse: AuthResponse = {
+        accessToken: 'access-google',
+        refreshToken: 'refresh-google',
+        user: {
+          id: 'google-user',
+          email: 'carlos@cofi.com',
+          fullName: 'Carlos Morales',
+          role: 'USER',
+        },
+      };
+
+      vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as unknown as Response);
+
+      const result = await service.registerWithGoogle('signup-token-123');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://test-api:3001/api/v1/auth/google/register',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ signupToken: 'signup-token-123' }),
+        }),
+      );
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should surface the specific field validation message', async () => {
+      vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          statusCode: 400,
+          message: 'La validación falló',
+          errors: [
+            { field: 'email', message: 'Dirección de correo inválida' },
+          ],
+        }),
+      } as unknown as Response);
+
+      await expect(
+        service.registerWithGoogle('bad-token'),
+      ).rejects.toThrow('Dirección de correo inválida');
+    });
+
+    it('should keep the backend message for invalid credentials', async () => {
+      vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          statusCode: 401,
+          code: 'INVALID_CREDENTIALS',
+          message: 'Correo o contraseña incorrectos',
+        }),
+      } as unknown as Response);
+
+      await expect(
+        service.login({ email: 'x@cofi.com', password: 'mala' }),
+      ).rejects.toThrow('Correo o contraseña incorrectos');
+    });
+  });
 });
