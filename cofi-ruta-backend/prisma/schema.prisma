@@ -335,7 +335,9 @@ model CoupleLink {
   reviews       Review[]
   matchSessions MatchSession[]
 
-  @@unique([userAId, userBId])
+  // A user may have only one ACTIVE link (enforced by partial unique indexes in
+  // the baseline migration). Archived links keep history, so the same pair can
+  // have multiple rows and create a new link later.
   @@index([userAId])
   @@index([userBId])
 }

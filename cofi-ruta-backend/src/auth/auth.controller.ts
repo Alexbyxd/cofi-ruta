@@ -2,7 +2,10 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
+  Delete,
   Body,
+  Param,
   UseGuards,
   Ip,
   Headers,
@@ -11,18 +14,26 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import type { RegisterDto, LoginDto, RefreshTokenDto } from './dto/auth.dto';
+import { AuthGuard } from '@nestjs/passport';
+import type { Request, Response } from 'express';
+import { AuthService, type SessionMeta } from './auth.service';
+import type {
+  ChangePasswordDto,
+  LoginDto,
+  RefreshTokenDto,
+  RegisterDto,
+  UpdateProfileDto,
+} from './dto/auth.dto';
 import {
-  registerSchema,
+  changePasswordSchema,
   loginSchema,
   refreshTokenSchema,
+  registerSchema,
+  updateProfileSchema,
 } from './dto/auth.dto';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
-import { AuthGuard } from '@nestjs/passport';
-import type { Request, Response } from 'express';
 import { validateEnv } from '../config/env.validation';
 
 const env = validateEnv();
@@ -44,13 +55,17 @@ interface GoogleAuthResult {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  private meta(userAgent?: string, ipAddress?: string): SessionMeta {
+    return { userAgent: userAgent ?? null, ipAddress: ipAddress ?? null };
+  }
+
   @Post('register')
   async register(
     @Body(new ZodValidationPipe(registerSchema)) dto: RegisterDto,
     @Headers('user-agent') userAgent?: string,
     @Ip() ipAddress?: string,
   ) {
-    return this.authService.register(dto, userAgent, ipAddress);
+    return this.authService.register(dto, this.meta(userAgent, ipAddress));
   }
 
   @Post('login')
@@ -60,7 +75,7 @@ export class AuthController {
     @Headers('user-agent') userAgent?: string,
     @Ip() ipAddress?: string,
   ) {
-    return this.authService.login(dto, userAgent, ipAddress);
+    return this.authService.login(dto, this.meta(userAgent, ipAddress));
   }
 
   @Post('refresh')
@@ -72,8 +87,7 @@ export class AuthController {
   ) {
     return this.authService.refreshTokens(
       dto.refreshToken,
-      userAgent,
-      ipAddress,
+      this.meta(userAgent, ipAddress),
     );
   }
 
@@ -85,10 +99,17 @@ export class AuthController {
     return this.authService.logout(dto.refreshToken);
   }
 
+  @Post('logout-all')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async logoutAll(@CurrentUser('id') userId: string) {
+    return this.authService.logoutAll(userId);
+  }
+
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   async getProfile(@CurrentUser('id') userId: string) {
-    return this.authService.getProfile(userId);
+    return this.authService.getMe(userId);
   }
 
   @Get('google')
@@ -131,5 +152,48 @@ export class AuthController {
 
     res.set('Content-Type', 'text/html; charset=utf-8');
     res.status(200).send(html);
+  }
+}
+
+@Controller('me')
+@UseGuards(JwtAuthGuard)
+export class MeController {
+  constructor(private readonly authService: AuthService) {}
+
+  @Get()
+  async getMe(@CurrentUser('id') userId: string) {
+    return this.authService.getMe(userId);
+  }
+
+  @Patch()
+  async updateMe(
+    @CurrentUser('id') userId: string,
+    @Body(new ZodValidationPipe(updateProfileSchema)) dto: UpdateProfileDto,
+  ) {
+    return this.authService.updateProfile(userId, dto);
+  }
+
+  @Patch('password')
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('sessionId') sessionId: string,
+    @Body(new ZodValidationPipe(changePasswordSchema)) dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(userId, sessionId, dto);
+  }
+
+  @Get('sessions')
+  async getSessions(@CurrentUser('id') userId: string) {
+    return { data: await this.authService.getSessions(userId) };
+  }
+
+  @Delete('sessions/:id')
+  @HttpCode(HttpStatus.OK)
+  async revokeSession(
+    @CurrentUser('id') userId: string,
+    @Param('id') sessionId: string,
+  ) {
+    return this.authService.revokeSession(userId, sessionId);
   }
 }

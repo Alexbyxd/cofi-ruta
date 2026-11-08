@@ -27,6 +27,9 @@ services:
       dockerfile: Dockerfile.dev
     container_name: cofi_backend
     restart: unless-stopped
+    # Regenerate the Prisma client on every boot so schema changes are never
+    # shadowed by a stale client inside the persistent node_modules volume.
+    command: sh -c "pnpm exec prisma generate && pnpm start:dev"
     env_file:
       - .env
     environment:

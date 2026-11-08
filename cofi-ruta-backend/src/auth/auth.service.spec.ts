@@ -1,13 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  ConflictException,
-  UnauthorizedException,
-  NotFoundException,
-} from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
+import { DomainException } from '../common/errors/domain.exception';
 
 jest.mock('@nestjs/jwt', () => {
   return {
@@ -18,16 +15,33 @@ jest.mock('@nestjs/jwt', () => {
   };
 });
 
+function codeOf(error: unknown): unknown {
+  return (error as DomainException).getResponse()
+    ? ((error as DomainException).getResponse() as { code?: string }).code
+    : undefined;
+}
+
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: any;
   let jwtService: any;
+
+  const publicUser = {
+    id: 'u1',
+    email: 'test@cofi.com',
+    fullName: 'Test User',
+    avatarUrl: null,
+    role: 'USER',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
   beforeEach(async () => {
     prisma = {
       user: {
         findUnique: jest.fn(),
         create: jest.fn(),
+        update: jest.fn(),
       },
       account: {
         findUnique: jest.fn(),
@@ -36,15 +50,15 @@ describe('AuthService', () => {
       session: {
         create: jest.fn(),
         findFirst: jest.fn(),
+        findMany: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn(),
       },
+      $transaction: jest.fn(),
     };
 
     jwtService = {
-      signAsync: jest.fn().mockImplementation((payload, opts) => {
-        return Promise.resolve(`token_${payload.sub}_${opts.expiresIn}`);
-      }),
+      signAsync: jest.fn().mockResolvedValue('access-token'),
       verifyAsync: jest.fn(),
     };
 
@@ -60,11 +74,8 @@ describe('AuthService', () => {
   });
 
   describe('register', () => {
-    it('should throw ConflictException if email is already registered', async () => {
-      prisma.user.findUnique.mockResolvedValue({
-        id: '1',
-        email: 'test@cofi.com',
-      });
+    it('rejects an already registered email with a domain error', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: '1' });
 
       await expect(
         service.register({
@@ -72,66 +83,88 @@ describe('AuthService', () => {
           password: 'password123',
           fullName: 'Test User',
         }),
-      ).rejects.toThrow(ConflictException);
+      ).rejects.toMatchObject({ code: 'EMAIL_ALREADY_REGISTERED' });
     });
 
-    it('should create user, session, and return tokens', async () => {
+    it('normalizes the email, hashes the password and creates a session', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
-      prisma.user.create.mockResolvedValue({
-        id: 'u1',
-        email: 'new@cofi.com',
-        fullName: 'New User',
-        avatarUrl: null,
-        role: 'USER',
-        createdAt: new Date(),
-      });
+      prisma.user.create.mockResolvedValue(publicUser);
       prisma.session.create.mockResolvedValue({ id: 's1' });
 
       const result = await service.register({
-        email: 'new@cofi.com',
-        password: 'securePassword123',
-        fullName: 'New User',
+        email: '  Test.User@Example.COM ',
+        password: 'password123',
+        fullName: 'Test User',
       });
 
-      expect(result.user.email).toBe('new@cofi.com');
-      expect(result.accessToken).toBeDefined();
-      expect(result.refreshToken).toBeDefined();
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { email: 'test.user@example.com' },
+        select: { id: true },
+      });
+
+      const createArgs = prisma.user.create.mock.calls[0][0] as {
+        data: { email: string; passwordHash: string };
+      };
+      expect(createArgs.data.email).toBe('test.user@example.com');
+      expect(createArgs.data.passwordHash).toMatch(/^\$2[aby]\$12\$/);
+      expect(
+        await bcrypt.compare('password123', createArgs.data.passwordHash),
+      ).toBe(true);
+
       expect(prisma.session.create).toHaveBeenCalled();
+      expect(result.accessToken).toBe('access-token');
+      expect(result.refreshToken).not.toContain('.');
+      expect(result.expiresIn).toBe(900);
     });
   });
 
   describe('login', () => {
-    it('should throw UnauthorizedException if user does not exist', async () => {
+    it('rejects unknown users with INVALID_CREDENTIALS', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.login({ email: 'unknown@cofi.com', password: 'password123' }),
-      ).rejects.toThrow(UnauthorizedException);
+      const error = await service
+        .login({ email: 'unknown@cofi.com', password: 'password123' })
+        .catch((caught: unknown) => caught);
+
+      expect(codeOf(error)).toBe('INVALID_CREDENTIALS');
     });
 
-    it('should throw UnauthorizedException if password does not match', async () => {
-      const hash = await bcrypt.hash('realpassword', 10);
+    it('rejects a wrong password with INVALID_CREDENTIALS', async () => {
+      const hash = await bcrypt.hash('realpassword', 12);
       prisma.user.findUnique.mockResolvedValue({
-        id: 'u1',
-        email: 'user@cofi.com',
+        ...publicUser,
         passwordHash: hash,
+        isActive: true,
       });
 
-      await expect(
-        service.login({ email: 'user@cofi.com', password: 'wrongpassword' }),
-      ).rejects.toThrow(UnauthorizedException);
+      const error = await service
+        .login({ email: 'user@cofi.com', password: 'wrongpassword' })
+        .catch((caught: unknown) => caught);
+
+      expect(codeOf(error)).toBe('INVALID_CREDENTIALS');
     });
 
-    it('should return tokens on valid credentials', async () => {
-      const hash = await bcrypt.hash('mypassword', 10);
+    it('rejects inactive accounts with ACCOUNT_INACTIVE', async () => {
+      const hash = await bcrypt.hash('mypassword', 12);
       prisma.user.findUnique.mockResolvedValue({
-        id: 'u1',
-        email: 'user@cofi.com',
-        fullName: 'Cofi User',
-        avatarUrl: null,
-        role: 'USER',
+        ...publicUser,
         passwordHash: hash,
-        createdAt: new Date(),
+        isActive: false,
+      });
+
+      const error = await service
+        .login({ email: 'user@cofi.com', password: 'mypassword' })
+        .catch((caught: unknown) => caught);
+
+      expect(codeOf(error)).toBe('ACCOUNT_INACTIVE');
+    });
+
+    it('returns tokens on valid credentials', async () => {
+      const hash = await bcrypt.hash('mypassword', 12);
+      prisma.user.findUnique.mockResolvedValue({
+        ...publicUser,
+        passwordHash: hash,
+        isActive: true,
       });
       prisma.session.create.mockResolvedValue({ id: 's1' });
 
@@ -141,174 +174,204 @@ describe('AuthService', () => {
       });
 
       expect(result.user.id).toBe('u1');
-      expect(result.accessToken).toBeDefined();
-      expect(result.refreshToken).toBeDefined();
+      expect(result.accessToken).toBe('access-token');
+      expect(result.refreshToken).toBeTruthy();
     });
   });
 
   describe('refreshTokens', () => {
-    it('should throw UnauthorizedException if token verification fails', async () => {
-      jwtService.verifyAsync.mockRejectedValue(new Error('Invalid token'));
+    it('rejects an unknown or expired refresh token', async () => {
+      prisma.session.findFirst.mockResolvedValue(null);
 
-      await expect(service.refreshTokens('bad-token')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      const error = await service
+        .refreshTokens('bad-token')
+        .catch((caught: unknown) => caught);
+
+      expect(codeOf(error)).toBe('INVALID_REFRESH_TOKEN');
     });
 
-    it('should rotate session and return new tokens', async () => {
-      jwtService.verifyAsync.mockResolvedValue({
-        sub: 'u1',
-        email: 'test@cofi.com',
-        role: 'USER',
-      });
+    it('rotates the stored hash and reissues tokens', async () => {
       prisma.session.findFirst.mockResolvedValue({
         id: 's1',
         userId: 'u1',
         userAgent: 'test-agent',
-      });
-      prisma.user.findUnique.mockResolvedValue({
-        id: 'u1',
-        email: 'test@cofi.com',
-        role: 'USER',
+        ipAddress: null,
+        user: { ...publicUser, isActive: true },
       });
       prisma.session.update.mockResolvedValue({ id: 's1' });
 
       const result = await service.refreshTokens('valid-refresh-token');
 
-      expect(result.accessToken).toBeDefined();
-      expect(result.refreshToken).toBeDefined();
-      expect(prisma.session.update).toHaveBeenCalled();
+      expect(result.accessToken).toBe('access-token');
+      expect(result.refreshToken).not.toBe('valid-refresh-token');
+      expect(prisma.session.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 's1' } }),
+      );
+    });
+
+    it('rejects inactive users', async () => {
+      prisma.session.findFirst.mockResolvedValue({
+        id: 's1',
+        userId: 'u1',
+        user: { ...publicUser, isActive: false },
+      });
+
+      const error = await service
+        .refreshTokens('valid-refresh-token')
+        .catch((caught: unknown) => caught);
+
+      expect(codeOf(error)).toBe('ACCOUNT_INACTIVE');
+    });
+  });
+
+  describe('logout', () => {
+    it('revokes only the matching session', async () => {
+      prisma.session.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.logout('some-refresh-token');
+      expect(result.revoked).toBe(1);
+      expect(prisma.session.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ revokedAt: null }),
+        }),
+      );
+    });
+  });
+
+  describe('getMe', () => {
+    it('returns the profile with active duo links and merchant memberships', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        ...publicUser,
+        isActive: true,
+        accounts: [],
+        duoAsUserA: [],
+        duoAsUserB: [],
+        merchantStaff: [],
+      });
+
+      const profile = await service.getMe('u1');
+      expect(profile.id).toBe('u1');
+      expect(profile.avatarUrl).toBeNull();
+    });
+
+    it('throws NotFoundException if user not found', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getMe('non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('changePassword', () => {
+    it('rejects when the current password does not match', async () => {
+      const hash = await bcrypt.hash('realpassword', 12);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        passwordHash: hash,
+      });
+
+      const error = await service
+        .changePassword('u1', 's1', {
+          currentPassword: 'wrongpassword',
+          newPassword: 'newpassword123',
+        })
+        .catch((caught: unknown) => caught);
+
+      expect(codeOf(error)).toBe('WRONG_PASSWORD');
+    });
+
+    it('hashes the new password and revokes the other sessions', async () => {
+      const hash = await bcrypt.hash('realpassword', 12);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        passwordHash: hash,
+      });
+      prisma.user.update.mockResolvedValue({ id: 'u1' });
+      prisma.session.updateMany.mockResolvedValue({ count: 1 });
+      prisma.$transaction.mockResolvedValue([]);
+
+      const result = await service.changePassword('u1', 's1', {
+        currentPassword: 'realpassword',
+        newPassword: 'newpassword123',
+      });
+
+      expect(result.message).toBeTruthy();
+      expect(prisma.session.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: { not: 's1' } }),
+        }),
+      );
     });
   });
 
   describe('googleLogin', () => {
-    it('should return user with google avatarUrl and JWT tokens', async () => {
+    const googleUser = {
+      ...publicUser,
+      email: 'carlos@cofi.com',
+      fullName: 'Carlos Morales',
+      avatarUrl: 'https://lh3.googleusercontent.com/a/carlos',
+      isActive: true,
+    };
+
+    it('rejects an unverified Google email before creating a user', async () => {
+      prisma.account.findUnique.mockResolvedValue(null);
+
+      const error = await service
+        .googleLogin({
+          googleId: 'google-123',
+          email: 'carlos@cofi.com',
+          emailVerified: false,
+          fullName: 'Carlos Morales',
+        })
+        .catch((caught: unknown) => caught);
+
+      expect(codeOf(error)).toBe('GOOGLE_EMAIL_NOT_VERIFIED');
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('links a verified account and returns tokens', async () => {
       prisma.account.findUnique.mockResolvedValue(null);
       prisma.user.findUnique.mockResolvedValue(null);
-      prisma.user.create.mockResolvedValue({
-        id: 'u-google',
-        email: 'carlos@cofi.com',
-        fullName: 'Carlos Morales',
-        avatarUrl: 'https://lh3.googleusercontent.com/a/carlos',
-        role: 'USER',
-        createdAt: new Date(),
-      });
+      prisma.user.create.mockResolvedValue(googleUser);
       prisma.account.create.mockResolvedValue({ id: 'acct-1' });
       prisma.session.create.mockResolvedValue({ id: 's-google' });
 
       const result = await service.googleLogin({
         googleId: 'google-123',
         email: 'carlos@cofi.com',
+        emailVerified: true,
         fullName: 'Carlos Morales',
         avatarUrl: 'https://lh3.googleusercontent.com/a/carlos',
       });
 
-      expect(result.user.id).toBe('u-google');
-      expect(result.user.avatarUrl).toBe(
-        'https://lh3.googleusercontent.com/a/carlos',
-      );
-      expect(result.accessToken).toBeDefined();
-      expect(result.refreshToken).toBeDefined();
+      expect(result.user.id).toBe('u1');
+      expect(result.accessToken).toBe('access-token');
       expect(prisma.account.create).toHaveBeenCalledWith({
         data: {
-          userId: 'u-google',
+          userId: 'u1',
           provider: 'google',
           providerAccountId: 'google-123',
         },
       });
     });
 
-    it('should link existing google account and return its avatarUrl', async () => {
+    it('reuses an already linked account without creating a user', async () => {
       prisma.account.findUnique.mockResolvedValue({
         id: 'acct-1',
-        userId: 'u-google',
-        user: {
-          id: 'u-google',
-          email: 'carlos@cofi.com',
-          fullName: 'Carlos Morales',
-          avatarUrl: 'https://lh3.googleusercontent.com/a/carlos',
-          role: 'USER',
-          createdAt: new Date(),
-        },
+        user: googleUser,
       });
       prisma.session.create.mockResolvedValue({ id: 's-google' });
 
       const result = await service.googleLogin({
         googleId: 'google-123',
         email: 'carlos@cofi.com',
+        emailVerified: true,
         fullName: 'Carlos Morales',
-        avatarUrl: 'https://lh3.googleusercontent.com/a/carlos',
       });
 
-      expect(result.user.id).toBe('u-google');
-      expect(result.user.avatarUrl).toBe(
-        'https://lh3.googleusercontent.com/a/carlos',
-      );
-      expect(result.accessToken).toBeDefined();
+      expect(result.user.id).toBe('u1');
       expect(prisma.user.create).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('getProfile', () => {
-    it('should return user profile including avatarUrl', async () => {
-      prisma.user.findUnique.mockResolvedValue({
-        id: 'u1',
-        email: 'user@cofi.com',
-        fullName: 'Profile User',
-        avatarUrl: 'https://lh3.googleusercontent.com/a/user',
-        role: 'USER',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        accounts: [],
-        duoAsUserA: [],
-        duoAsUserB: [],
-      });
-
-      const profile = await service.getProfile('u1');
-      expect(profile.id).toBe('u1');
-      expect(profile.avatarUrl).toBe(
-        'https://lh3.googleusercontent.com/a/user',
-      );
-      expect(profile.fullName).toBe('Profile User');
-    });
-
-    it('should throw NotFoundException if user not found', async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
-
-      await expect(service.getProfile('non-existent')).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-  });
-
-  describe('logout', () => {
-    it('should revoke active session', async () => {
-      prisma.session.updateMany.mockResolvedValue({ count: 1 });
-
-      const result = await service.logout('some-refresh-token');
-      expect(result.message).toBe('Successfully logged out');
-      expect(prisma.session.updateMany).toHaveBeenCalled();
-    });
-  });
-
-  describe('getProfile', () => {
-    it('should return user profile if found', async () => {
-      prisma.user.findUnique.mockResolvedValue({
-        id: 'u1',
-        email: 'user@cofi.com',
-        fullName: 'Profile User',
-      });
-
-      const profile = await service.getProfile('u1');
-      expect(profile.id).toBe('u1');
-    });
-
-    it('should throw NotFoundException if user not found', async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
-
-      await expect(service.getProfile('non-existent')).rejects.toThrow(
-        NotFoundException,
-      );
     });
   });
 });
