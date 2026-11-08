@@ -18,7 +18,7 @@ export const AuthModeTabs: React.FC<AuthModeTabsProps> = ({
         id="tab-login"
         aria-selected={mode === 'login'}
         onClick={() => onModeChange('login')}
-        className={`py-2.5 px-3 rounded font-[family-name:var(--font-space-grotesk)] text-xs font-bold uppercase tracking-wider transition-all duration-100 flex items-center justify-center gap-2 cursor-pointer ${
+        className={`py-2.5 lg:py-3 px-3 rounded font-[family-name:var(--font-space-grotesk)] text-xs lg:text-[13px] font-bold uppercase tracking-wider transition-all duration-100 flex items-center justify-center gap-2 cursor-pointer ${
           mode === 'login'
             ? 'bg-primary-container text-espresso-ink border-[2px] border-espresso-ink shadow-[2px_2px_0px_0px_#1A0F0A]'
             : 'bg-surface-card text-on-surface-variant border-[2px] border-transparent hover:text-espresso-ink'
@@ -34,7 +34,7 @@ export const AuthModeTabs: React.FC<AuthModeTabsProps> = ({
         id="tab-register"
         aria-selected={mode === 'register'}
         onClick={() => onModeChange('register')}
-        className={`py-2.5 px-3 rounded font-[family-name:var(--font-space-grotesk)] text-xs font-bold uppercase tracking-wider transition-all duration-100 flex items-center justify-center gap-2 cursor-pointer ${
+        className={`py-2.5 lg:py-3 px-3 rounded font-[family-name:var(--font-space-grotesk)] text-xs lg:text-[13px] font-bold uppercase tracking-wider transition-all duration-100 flex items-center justify-center gap-2 cursor-pointer ${
           mode === 'register'
             ? 'bg-primary-container text-espresso-ink border-[2px] border-espresso-ink shadow-[2px_2px_0px_0px_#1A0F0A]'
             : 'bg-surface-card text-on-surface-variant border-[2px] border-transparent hover:text-espresso-ink'

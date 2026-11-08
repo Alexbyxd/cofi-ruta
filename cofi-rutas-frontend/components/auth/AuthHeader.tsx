@@ -18,11 +18,11 @@ export const AuthHeader: React.FC<AuthHeaderProps> = ({
 
       {/* Main Title & Subtitle */}
       <div className="flex flex-col gap-1 mt-1">
-        <h1 className="font-[family-name:var(--font-space-grotesk)] text-2xl sm:text-3xl font-black uppercase text-espresso-ink tracking-tight flex items-center gap-2">
+        <h1 className="font-[family-name:var(--font-space-grotesk)] text-2xl sm:text-3xl lg:text-4xl font-black uppercase text-espresso-ink tracking-tight flex items-center gap-2">
           <span>BIENVENIDO A COFIRUTAS</span>
-          <Coffee className="w-6 h-6 text-tertiary shrink-0" strokeWidth={2.5} />
+          <Coffee className="w-6 h-6 lg:w-7 lg:h-7 text-tertiary shrink-0" strokeWidth={2.5} />
         </h1>
-        <p className="font-[family-name:var(--font-dm-sans)] text-sm text-on-surface-variant font-medium leading-snug">
+        <p className="font-[family-name:var(--font-dm-sans)] text-sm lg:text-base text-on-surface-variant font-medium leading-snug">
           Tu pasaporte cafetero, citas en pareja y los mejores submarinos y cafés de altura en Oruro.
         </p>
       </div>

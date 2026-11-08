@@ -5,7 +5,7 @@ import type { AuthFooterProps } from '../../types/auth';
 export const AuthFooter: React.FC<AuthFooterProps> = ({ className = '' }) => {
   return (
     <footer className={`flex flex-col items-center gap-1 text-center py-4 w-full ${className}`}>
-      <p className="font-[family-name:var(--font-dm-sans)] text-xs text-on-surface-variant max-w-xs">
+      <p className="font-[family-name:var(--font-dm-sans)] text-xs text-on-surface-variant max-w-xs lg:max-w-md">
         Al continuar aceptas los{' '}
         <a
           href="#terminos"

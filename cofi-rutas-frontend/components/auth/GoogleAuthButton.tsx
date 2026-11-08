@@ -12,7 +12,7 @@ export const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className="w-full bg-surface-card border-[3px] border-espresso-ink rounded-lg shadow-[4px_4px_0px_0px_#1A0F0A] px-4 py-3 flex items-center justify-center gap-3 transition-transform duration-75 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_#1A0F0A] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full bg-surface-card border-[3px] border-espresso-ink rounded-lg shadow-[4px_4px_0px_0px_#1A0F0A] px-4 py-3 lg:py-3.5 flex items-center justify-center gap-3 transition-transform duration-75 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_#1A0F0A] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
       >
         <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
           <path

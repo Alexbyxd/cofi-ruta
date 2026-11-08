@@ -38,10 +38,10 @@ export default function LoginPage() {
   } = useAuthForm();
 
   return (
-    <main className="min-h-screen bg-surface flex flex-col justify-start items-center pt-6 sm:pt-10 pb-12 px-4 sm:px-6 text-espresso-ink">
-      <div className="w-full max-w-md flex flex-col gap-4 sm:gap-5">
+    <main className="min-h-screen bg-surface flex flex-col justify-start items-center pt-6 sm:pt-10 pb-12 px-4 sm:px-6 lg:justify-center lg:px-8 text-espresso-ink">
+      <div className="w-full max-w-md flex flex-col gap-4 sm:gap-5 lg:max-w-5xl lg:grid lg:grid-cols-[42fr_58fr] lg:items-start lg:gap-x-14 lg:gap-y-6">
         {/* Navigation Return Link */}
-        <div className="w-full flex items-center justify-start">
+        <div className="w-full flex items-center justify-start lg:col-span-2">
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 font-[family-name:var(--font-space-grotesk)] text-xs font-bold uppercase tracking-wider text-espresso-ink/70 hover:text-espresso-ink transition-colors"
@@ -51,44 +51,63 @@ export default function LoginPage() {
           </Link>
         </div>
 
-        {/* Brand Stamp & Altitude Header */}
-        <AuthHeader altitudeMeters={3735} editionBadge="COFIRUTAS • ORURO" />
+        {/* Brand Column (desktop only as a column; on mobile its children flow inline) */}
+        <div className="contents lg:flex lg:flex-col lg:gap-8 lg:col-start-1 lg:row-start-2">
+          {/* Brand Stamp & Altitude Header */}
+          <AuthHeader altitudeMeters={3735} editionBadge="COFIRUTAS • ORURO" />
 
-        {/* Quick Google Action */}
-        <GoogleAuthButton onClick={handleGoogleLogin} disabled={loading} />
+          {/* CofiDúo Specialty Badge Banner (desktop placement) */}
+          <div className="hidden lg:block">
+            <CofiDuoPromoCard />
+          </div>
+        </div>
 
-        {/* Brutalist Segment Divider */}
-        <BrutalistDivider label="O CON TU CUENTA" />
+        {/* Auth Card (desktop card surface; on mobile its children flow inline) */}
+        <div className="contents lg:flex lg:flex-col lg:gap-5 lg:col-start-2 lg:row-start-2 lg:bg-surface-card lg:border-[3px] lg:border-espresso-ink lg:rounded-lg lg:p-8 lg:shadow-[8px_8px_0px_0px_#1A0F0A]">
+          {/* Quick Google Action */}
+          <GoogleAuthButton onClick={handleGoogleLogin} disabled={loading} />
 
-        {/* Mode Selector Tabs */}
-        <AuthModeTabs mode={mode} onModeChange={setMode} />
+          {/* Brutalist Segment Divider */}
+          <BrutalistDivider label="O CON TU CUENTA" />
 
-        {/* Feedback Alert / Notification */}
-        <AuthFeedback feedback={feedback} onDismiss={dismissFeedback} />
+          {/* Mode Selector Tabs */}
+          <AuthModeTabs mode={mode} onModeChange={setMode} />
 
-        {/* Main Brutalist Form */}
-        <AuthForm
-          mode={mode}
-          email={email}
-          onEmailChange={setEmail}
-          password={password}
-          onPasswordChange={setPassword}
-          fullName={fullName}
-          onFullNameChange={setFullName}
-          specialty={specialty}
-          onSpecialtyChange={setSpecialty}
-          showPassword={showPassword}
-          onToggleShowPassword={toggleShowPassword}
-          onForgotPassword={handleForgotPassword}
-          onSubmit={handleSubmit}
-          loading={loading}
-        />
+          {/* Feedback Alert / Notification */}
+          <AuthFeedback feedback={feedback} onDismiss={dismissFeedback} />
 
-        {/* CofiDúo Specialty Badge Banner */}
-        <CofiDuoPromoCard />
+          {/* Main Brutalist Form */}
+          <AuthForm
+            mode={mode}
+            email={email}
+            onEmailChange={setEmail}
+            password={password}
+            onPasswordChange={setPassword}
+            fullName={fullName}
+            onFullNameChange={setFullName}
+            specialty={specialty}
+            onSpecialtyChange={setSpecialty}
+            showPassword={showPassword}
+            onToggleShowPassword={toggleShowPassword}
+            onForgotPassword={handleForgotPassword}
+            onSubmit={handleSubmit}
+            loading={loading}
+          />
 
-        {/* Legal & Terms Footer */}
-        <AuthFooter />
+          {/* Legal & Terms Footer (desktop placement, inside the card) */}
+          <div className="hidden lg:block lg:pt-1">
+            <AuthFooter />
+          </div>
+        </div>
+
+        {/* Mobile flow: CofiDúo banner + legal footer keep their original order */}
+        <div className="lg:hidden">
+          <CofiDuoPromoCard />
+        </div>
+
+        <div className="lg:hidden">
+          <AuthFooter />
+        </div>
       </div>
     </main>
   );
