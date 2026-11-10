@@ -33,6 +33,12 @@ export const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_CALLBACK_URL: z.string().optional(),
+  // Better Auth
+  BETTER_AUTH_SECRET: z
+    .string()
+    .min(32, 'BETTER_AUTH_SECRET debe tener al menos 32 caracteres')
+    .optional(),
+  BETTER_AUTH_URL: z.url('BETTER_AUTH_URL debe ser una URL válida').optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

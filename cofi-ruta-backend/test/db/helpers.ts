@@ -6,6 +6,7 @@ const TABLES = [
   'User',
   'Account',
   'Session',
+  'Verification',
   'MerchantStaff',
   'CoffeeShop',
   'OpeningHours',

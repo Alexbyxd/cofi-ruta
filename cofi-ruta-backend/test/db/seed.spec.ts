@@ -58,8 +58,17 @@ describe('Seed idempotente (Fase 0)', () => {
 
       expect(admins).toHaveLength(1);
       expect(admins[0].isActive).toBe(true);
+
+      const credential = await prisma.account.findUniqueOrThrow({
+        where: {
+          providerId_accountId: {
+            providerId: 'credential',
+            accountId: admins[0].id,
+          },
+        },
+      });
       expect(
-        await bcrypt.compare('seed-password-123', admins[0].passwordHash!),
+        await bcrypt.compare('seed-password-123', credential.password!),
       ).toBe(true);
     } finally {
       if (previousEmail === undefined) {

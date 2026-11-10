@@ -1,33 +1,9 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
-import { AuthService } from './auth.service';
-import { AuthController, MeController } from './auth.controller';
-import { JwtStrategy } from './strategies/jwt.strategy';
-import { GoogleStrategy } from './strategies/google.strategy';
-import { RolesGuard } from './guards/roles.guard';
-import { MerchantGuard } from './guards/merchant.guard';
+import { BetterAuthController } from './better-auth/better-auth.controller';
 
 @Module({
-  imports: [
-    PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwtModule.register({}),
-  ],
-  controllers: [AuthController, MeController],
-  providers: [
-    AuthService,
-    JwtStrategy,
-    GoogleStrategy,
-    RolesGuard,
-    MerchantGuard,
-  ],
-  exports: [
-    AuthService,
-    JwtStrategy,
-    GoogleStrategy,
-    RolesGuard,
-    MerchantGuard,
-    PassportModule,
-  ],
+  controllers: [BetterAuthController],
+  providers: [],
+  exports: [],
 })
 export class AuthModule {}

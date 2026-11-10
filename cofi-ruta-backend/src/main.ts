@@ -5,7 +5,9 @@ import { validateEnv } from './config/env.validation';
 async function bootstrap() {
   const env = validateEnv();
 
-  const app = await NestFactory.create(AppModule);
+  // `rawBody` keeps Nest's JSON parsing for DTOs while exposing the untouched
+  // body that Better Auth's web handler needs.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.setGlobalPrefix('api/v1');
   app.enableCors({

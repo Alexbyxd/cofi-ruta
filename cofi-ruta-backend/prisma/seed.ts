@@ -5,7 +5,6 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
 import * as dotenv from 'dotenv';
 import { Pool } from 'pg';
-import { BCRYPT_ROUNDS } from '../src/auth/auth.constants';
 import {
   cafesSchema,
   categories,
@@ -30,6 +29,9 @@ const CAFES_FILE = join(__dirname, 'seed-data', 'cafes.json');
 
 const DEFAULT_SUPERADMIN_EMAIL = 'superadmin@cofirutas.bo';
 const DEFAULT_DEV_SUPERADMIN_PASSWORD = 'CofiRutas2026!';
+
+// Better Auth is configured with bcrypt cost 12 (see src/auth/better-auth/config.ts).
+const BCRYPT_ROUNDS = 12;
 
 /**
  * Crea (o reafirma) el usuario global `SUPERADMIN` usado para probar los
@@ -57,16 +59,28 @@ export async function seedSuperAdmin(
     where: { email },
     update: {
       role: 'SUPERADMIN',
-      passwordHash,
       isActive: true,
     },
     create: {
       email,
-      passwordHash,
       fullName: 'Super Administrador CofiRutas',
       role: 'SUPERADMIN',
     },
-    select: { email: true },
+    select: { id: true, email: true },
+  });
+
+  // Better Auth stores credential passwords on Account, not on User.
+  await prisma.account.upsert({
+    where: {
+      providerId_accountId: { providerId: 'credential', accountId: user.id },
+    },
+    update: { password: passwordHash },
+    create: {
+      userId: user.id,
+      providerId: 'credential',
+      accountId: user.id,
+      password: passwordHash,
+    },
   });
 
   return { email: user.email };
