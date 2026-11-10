@@ -2,13 +2,23 @@ export type AuthMode = 'login' | 'register';
 
 export type CoffeeSpecialty = 'Submarino' | 'V60 Altura' | 'Mocaccino';
 
+/**
+ * AuthUser - Updated to match Better Auth user schema
+ * Compatible with both legacy AuthService and Better Auth client
+ */
 export interface AuthUser {
   id: string;
   email: string;
-  fullName: string;
-  role?: string;
+  name: string;           // Better Auth standard field (maps to fullName)
+  fullName?: string;      // Legacy compatibility / custom field (optional for Better Auth)
   avatarUrl?: string | null;
-  createdAt?: string;
+  image?: string | null;  // Better Auth standard field (maps to avatarUrl)
+  role?: string;
+  isActive?: boolean;
+  specialty?: string | null;
+  emailVerified?: boolean;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }
 
 export interface AuthResponse {

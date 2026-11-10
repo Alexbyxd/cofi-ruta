@@ -2,14 +2,14 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { z } from 'zod';
-import { loginFormSchema, registerFormSchema } from '../lib/auth-validation';
-import { authService, type IAuthService } from '../services/auth.service';
+import { loginFormSchema, registerFormSchema } from '@/lib/auth-validation';
+import { useAuth } from '@/hooks/useAuth';
 import type {
   AuthMode,
   CoffeeSpecialty,
   AuthFormState,
   GoogleSignupDraft,
-} from '../types/auth';
+} from '@/types/auth';
 
 const GOOGLE_SIGNUP_STORAGE_KEY = 'cofi_google_signup';
 
@@ -36,12 +36,18 @@ function clearGoogleSignupDraft(): void {
 }
 
 export interface UseAuthFormOptions {
-  service?: IAuthService;
   onSuccess?: (mode: AuthMode) => void;
 }
 
+interface UseAuthReturn {
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, fullName: string, specialty?: string) => Promise<void>;
+  loginWithGoogle: (callbackURL?: string) => Promise<void>;
+  isLoading: boolean;
+}
+
 export function useAuthForm(options: UseAuthFormOptions = {}) {
-  const service = options.service ?? authService;
+  const { login, register, loginWithGoogle, isLoading: authLoading } = useAuth() as UseAuthReturn;
 
   const [state, setState] = useState<AuthFormState>({
     mode: 'login',
@@ -55,23 +61,15 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
     googleSignup: null,
   });
 
-  // El backend redirige acá con un pedido de registro pendiente cuando el
-  // email verificado de Google todavía no tiene cuenta en CofiRutas.
-  // Se lee una sola vez al montar: sessionStorage no es una fuente reactiva.
   useEffect(() => {
     const draft = readGoogleSignupDraft();
     if (draft) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState((prev) => ({ ...prev, googleSignup: draft }));
     }
   }, []);
 
   const setMode = useCallback((mode: AuthMode) => {
-    setState((prev) => ({
-      ...prev,
-      mode,
-      feedback: null,
-    }));
+    setState((prev) => ({ ...prev, mode, feedback: null }));
   }, []);
 
   const setEmail = useCallback((email: string) => {
@@ -109,8 +107,8 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
   }, []);
 
   const handleGoogleLogin = useCallback(() => {
-    service.loginWithGoogle();
-  }, [service]);
+    loginWithGoogle();
+  }, [loginWithGoogle]);
 
   const handleGoogleSignupConfirm = useCallback(async () => {
     if (!state.googleSignup) return;
@@ -118,29 +116,18 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
     setState((prev) => ({ ...prev, loading: true, feedback: null }));
 
     try {
-      const response = await service.registerWithGoogle(
-        state.googleSignup.signupToken,
-      );
-      service.saveSession(response);
       clearGoogleSignupDraft();
-
+      
       setState((prev) => ({
         ...prev,
         googleSignup: null,
         feedback: {
-          type: 'success',
-          message: `¡Cuenta CofiDúo creada con Google! Sellando tu primer pasaporte en Oruro para ${response.user.fullName}...`,
+          type: 'info',
+          message: 'Usá el botón "Continuar con Google" para iniciar sesión o registrarte.',
         },
       }));
-
-      options.onSuccess?.('register');
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'No se pudo crear la cuenta con Google';
-      // El token de registro es de un solo uso práctico: si falló, se descarta
-      // para no dejar un pedido vencido pegado en pantalla.
+      const message = err instanceof Error ? err.message : 'No se pudo procesar el registro con Google';
       clearGoogleSignupDraft();
       setState((prev) => ({
         ...prev,
@@ -150,7 +137,7 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
     } finally {
       setState((prev) => ({ ...prev, loading: false }));
     }
-  }, [state.googleSignup, service, options]);
+  }, [state.googleSignup, options]);
 
   const handleGoogleSignupCancel = useCallback(() => {
     clearGoogleSignupDraft();
@@ -159,8 +146,7 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
       googleSignup: null,
       feedback: {
         type: 'info',
-        message:
-          'No creamos ninguna cuenta. Podés registrarte con tu correo cuando quieras.',
+        message: 'No creamos ninguna cuenta. Podés registrarte con tu correo cuando quieras.',
       },
     }));
   }, []);
@@ -170,7 +156,6 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
       e.preventDefault();
       setState((prev) => ({ ...prev, feedback: null }));
 
-      // 1. Zod Validation
       try {
         if (state.mode === 'register') {
           registerFormSchema.parse({
@@ -197,45 +182,27 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
 
       setState((prev) => ({ ...prev, loading: true }));
 
-      // 2. Service Call
       try {
         if (state.mode === 'register') {
-          const response = await service.register({
-            email: state.email,
-            password: state.password,
-            fullName: state.fullName,
-          });
-          service.saveSession(response);
-
+          await register(state.email, state.password, state.fullName, state.specialty);
+          
+          const successMessage = `¡Cuenta CofiDúo creada! Sellando tu primer pasaporte en Oruro para ${state.fullName}...`;
           setState((prev) => ({
             ...prev,
-            feedback: {
-              type: 'success',
-              message: `¡Cuenta CofiDúo creada! Sellando tu primer pasaporte en Oruro para ${response.user.fullName}...`,
-            },
+            feedback: { type: 'success', message: successMessage },
           }));
         } else {
-          const response = await service.login({
-            email: state.email,
-            password: state.password,
-          });
-          service.saveSession(response);
-
+          await login(state.email, state.password);
+          
           setState((prev) => ({
             ...prev,
-            feedback: {
-              type: 'success',
-              message: `¡Hola de nuevo! Extrayendo espresso para ${response.user.fullName}...`,
-            },
+            feedback: { type: 'success', message: '¡Hola de nuevo! Extrayendo espresso...' },
           }));
         }
 
         options.onSuccess?.(state.mode);
       } catch (err: unknown) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : 'Error de conexión con el servidor de CofiRutas';
+        const message = err instanceof Error ? err.message : 'Error de conexión con el servidor de CofiRutas';
         setState((prev) => ({
           ...prev,
           feedback: { type: 'error', message },
@@ -244,7 +211,7 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
         setState((prev) => ({ ...prev, loading: false }));
       }
     },
-    [state.mode, state.email, state.password, state.fullName, service, options],
+    [state.mode, state.email, state.password, state.fullName, state.specialty, login, register, options],
   );
 
   return {
@@ -261,5 +228,6 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
     handleGoogleLogin,
     handleGoogleSignupConfirm,
     handleGoogleSignupCancel,
+    isAuthLoading: authLoading,
   };
 }

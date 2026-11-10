@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import { useAuthForm } from '../../hooks/useAuthForm';
+import { useAuthForm } from '@/hooks/useAuthForm';
 import {
   AuthHeader,
   GoogleAuthButton,
@@ -15,7 +15,7 @@ import {
   AuthForm,
   CofiDuoPromoCard,
   AuthFooter,
-} from '../../components/auth';
+} from '@/components/auth';
 
 export default function LoginPage() {
   const router = useRouter();

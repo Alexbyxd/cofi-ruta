@@ -6,6 +6,7 @@ import { UserProfile } from './UserProfile';
 const mockUser = {
   id: 'u1',
   email: 'carlos@cofi.com',
+  name: 'Carlos Morales',  // Better Auth standard field
   fullName: 'Carlos Morales',
   avatarUrl: 'https://lh3.googleusercontent.com/a/carlos',
   role: 'USER',

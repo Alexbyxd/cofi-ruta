@@ -9,7 +9,8 @@ export interface UserProfileProps {
 }
 
 export const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
-  const initials = user.fullName
+  const displayName = user.fullName || user.name || 'Usuario';
+  const initials = displayName
     .split(' ')
     .map((part) => part[0])
     .join('')
@@ -27,7 +28,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
             {avatarUrl ? (
               <img
                 src={avatarUrl}
-                alt={`Avatar de ${user.fullName}`}
+                alt={`Avatar de ${displayName}`}
                 className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-[3px] border-espresso-ink shadow-[4px_4px_0px_0px_#1A0F0A] object-cover bg-surface-card"
               />
             ) : (
@@ -55,7 +56,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
           </div>
 
           <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl sm:text-3xl font-black uppercase text-espresso-ink tracking-tight">
-            {user.fullName}
+            {displayName}
           </h2>
 
           <p className="font-[family-name:var(--font-dm-sans)] text-base text-on-surface-variant font-medium">
