@@ -1,60 +1,90 @@
-'use client';
+"use client";
 
-import { useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 /**
- * Auth Callback Page - Better Auth Version
+ * Página de callback para autenticación OAuth (popup mode)
  *
- * Better Auth handles OAuth callbacks automatically at /api/auth/callback/:provider
- * and redirects to the callbackURL specified in signIn.social().
- *
- * This page handles:
- * - Successful OAuth redirect (from Better Auth callbackURL)
- * - Error states (if any)
- * - Email verification links (if enabled in future)
+ * Better Auth redirige aquí tras completar el flujo OAuth en el popup.
+ * Esta página notifica a la ventana principal (opener) y se cierra.
  */
-
-function AuthCallbackContent() {
+export default function AuthCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    // Check for error parameters from Better Auth
-    const error = searchParams.get('error');
-    const errorCode = searchParams.get('error_code');
-    const errorDescription = searchParams.get('error_description');
+    // Notificar a la ventana principal que la autenticación terminó
+    if (window.opener && !window.opener.closed) {
+      const error = searchParams.get("error");
+      const errorDescription = searchParams.get("error_description");
 
-    if (error) {
-      console.error('[Auth Callback] OAuth error:', { error, errorCode, errorDescription });
-      router.replace(`/login?error=${encodeURIComponent(errorDescription || error)}`);
-      return;
+      if (error) {
+        window.opener.postMessage(
+          {
+            type: "GOOGLE_AUTH_ERROR",
+            message: errorDescription || error,
+          },
+          window.location.origin
+        );
+      } else {
+        window.opener.postMessage(
+          { type: "GOOGLE_AUTH_SUCCESS" },
+          window.location.origin
+        );
+      }
     }
 
-    // Check for email verification (if enabled in future)
-    const verified = searchParams.get('verified');
-    if (verified === 'true') {
-      router.replace('/login?verified=true');
-      return;
+    // Cerrar el popup después de un breve delay para permitir que el mensaje se procese
+    setTimeout(() => {
+      window.close();
+    }, 100);
+  }, [searchParams]);
+
+  // Si no hay opener (usuario llegó directo a esta URL), redirigir al dashboard
+  useEffect(() => {
+    if (!window.opener || window.opener.closed) {
+      router.replace("/dashboard");
     }
+  }, [router]);
 
-    // Successful OAuth redirect - Better Auth already set cookies
-    // Just redirect to dashboard (or intended page)
-    const callbackURL = searchParams.get('callbackURL') || '/dashboard';
-    router.replace(callbackURL);
-  }, [router, searchParams]);
-
-  // Render nothing - this page immediately redirects
-  return null;
-}
-
-/**
- * Wrapper with Suspense to allow useSearchParams() during static generation
- */
-export default function AuthCallbackPage() {
   return (
-    <Suspense fallback={null}>
-      <AuthCallbackContent />
-    </Suspense>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "100vh",
+        fontFamily: "system-ui, sans-serif",
+      }}
+    >
+      <div style={{ textAlign: "center" }}>
+        <div
+          style={{
+            width: "40px",
+            height: "40px",
+            border: "3px solid #f3f3f3",
+            borderTop: "3px solid #34A853",
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite",
+            margin: "0 auto 16px",
+          }}
+        />
+        <style jsx>{`
+          @keyframes spin {
+            0% {
+              transform: rotate(0deg);
+            }
+            100% {
+              transform: rotate(360deg);
+            }
+          }
+        `}</style>
+        <p>Completando autenticación...</p>
+        <p style={{ fontSize: "12px", color: "#666", marginTop: "8px" }}>
+          Esta ventana se cerrará automáticamente.
+        </p>
+      </div>
+    </div>
   );
 }

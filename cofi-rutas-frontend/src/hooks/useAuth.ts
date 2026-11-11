@@ -69,16 +69,91 @@ export function useAuth() {
   );
 
   /**
-   * Login with Google OAuth
+   * Login with Google OAuth (popup mode)
    */
   const loginWithGoogle = useCallback(
     async (callbackURL = "/dashboard") => {
-      await signIn.social({
+      // Usar URL completa del frontend para el callback OAuth
+      // El backend (puerto 3001) redirigirá aquí tras procesar Google OAuth
+      const frontendOrigin = window.location.origin;
+      const oauthCallbackURL = `${frontendOrigin}/auth/callback`;
+
+      const { data } = await signIn.social({
         provider: "google",
-        callbackURL,
+        callbackURL: oauthCallbackURL,
+        disableRedirect: true,
+      });
+
+      if (!data?.url) {
+        throw new Error("No se pudo obtener la URL de autenticación de Google");
+      }
+
+      // Abrir popup centrado
+      const width = 500;
+      const height = 600;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+
+      const popup = window.open(
+        data.url,
+        "google-auth",
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+      );
+
+      // Verificación robusta de popup bloqueado
+      if (!popup || popup.closed || typeof popup.closed === "undefined") {
+        throw new Error("El navegador bloqueó el popup. Permití popups para este sitio.");
+      }
+
+      // Esperar a que el popup se cierre o complete la autenticación
+      return new Promise<void>((resolve, reject) => {
+        let settled = false;
+        const cleanup = () => {
+          clearInterval(checkClosed);
+          window.removeEventListener("message", handleMessage);
+        };
+        const settle = (fn: () => void) => {
+          if (!settled) {
+            settled = true;
+            cleanup();
+            fn();
+          }
+        };
+
+        const checkClosed = setInterval(() => {
+          if (popup.closed) {
+            settle(() => refetch().then(() => resolve()).catch(reject));
+          }
+        }, 500);
+
+        // Timeout global: 5 min
+        const globalTimeout = setTimeout(() => {
+          if (!popup.closed) popup.close();
+          settle(() => reject(new Error("Tiempo de espera agotado para autenticación con Google")));
+        }, 5 * 60 * 1000);
+
+        const handleMessage = (event: MessageEvent) => {
+          if (event.origin !== window.location.origin) return;
+          
+          if (event.data?.type === "GOOGLE_AUTH_SUCCESS") {
+            settle(() => {
+              popup.close();
+              clearTimeout(globalTimeout);
+              refetch().then(() => resolve()).catch(reject);
+            });
+          } else if (event.data?.type === "GOOGLE_AUTH_ERROR") {
+            settle(() => {
+              popup.close();
+              clearTimeout(globalTimeout);
+              reject(new Error(event.data.message || "Error en autenticación con Google"));
+            });
+          }
+        };
+
+        window.addEventListener("message", handleMessage);
       });
     },
-    []
+    [refetch]
   );
 
   /**

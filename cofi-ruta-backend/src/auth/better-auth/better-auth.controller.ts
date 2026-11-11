@@ -21,7 +21,7 @@ import { getAuth } from './auth.provider';
 export class BetterAuthController {
   private readonly logger = new Logger(BetterAuthController.name);
 
-  @All('*')
+  @All('*path')
   async handle(
     @Req() req: RawBodyRequest<Request>,
     @Res() res: Response,
