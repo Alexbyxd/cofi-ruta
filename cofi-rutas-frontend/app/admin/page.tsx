@@ -6,7 +6,6 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   AnalyticsCharts,
   CoffeeShopsTable,
-  EmergencyFreezeButton,
   KPICards,
   LiveCheckinsFeed,
   PINGeneratorModal,
@@ -15,6 +14,14 @@ import {
 } from '@/components/dashboard';
 import { AdminBottomNav } from '@/components/dashboard/AdminBottomNav';
 import { resolvePanelAccess } from '@/lib/admin-access';
+
+/**
+ * Base del auth en la API. `panel-access` no vive bajo `/auth` porque ese
+ * prefijo lo atiende el handler wildcard de Better Auth.
+ */
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
+).replace(/\/+$/, '');
 
 /**
  * Panel administrativo en `/admin`.
@@ -30,11 +37,40 @@ export default function AdminPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [pinModalOpen, setPinModalOpen] = useState(false);
-  const [frozen, setFrozen] = useState(false);
+  const [merchantRole, setMerchantRole] = useState<string | null>(null);
+  const [accessResolved, setAccessResolved] = useState(false);
 
-  const access = resolvePanelAccess(user);
+  const access = resolvePanelAccess({ role: user?.role, merchantRole });
   const isOwner = access.role === 'OWNER';
   const canAccess = access.canAccess;
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const response = await fetch(`${API_BASE}/panel-access`, {
+          credentials: 'include',
+        });
+        if (response.ok) {
+          const data = (await response.json()) as {
+            merchantRole?: string | null;
+          };
+          if (!cancelled) setMerchantRole(data.merchantRole ?? null);
+        }
+      } catch {
+        // Sin respuesta del backend la pertenencia de merchant no se puede
+        // resolver: el usuario queda como USER y fuera del panel.
+      } finally {
+        if (!cancelled) setAccessResolved(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -42,12 +78,12 @@ export default function AdminPage() {
       router.replace('/login');
       return;
     }
-    if (!canAccess) {
+    if (accessResolved && !canAccess) {
       router.replace('/inicio');
     }
-  }, [isLoading, isAuthenticated, canAccess, router]);
+  }, [isLoading, isAuthenticated, accessResolved, canAccess, router]);
 
-  if (isLoading) {
+  if (isLoading || (isAuthenticated && !accessResolved)) {
     return (
       <div className="min-h-screen bg-cream-bg flex items-center justify-center">
         <div className="text-center">
@@ -143,7 +179,7 @@ export default function AdminPage() {
                 ejecuta un superadmin.
               </p>
             ) : (
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col gap-3">
                 <button
                   type="button"
                   onClick={() => setPinModalOpen(true)}
@@ -151,11 +187,11 @@ export default function AdminPage() {
                 >
                   Generar PIN diario
                 </button>
-                <EmergencyFreezeButton
-                  initiallyFrozen={frozen}
-                  onFreeze={() => setFrozen(true)}
-                  onUnfreeze={() => setFrozen(false)}
-                />
+                <p className="font-[family-name:var(--font-dm-sans)] text-xs font-medium text-espresso-ink/70">
+                  El congelamiento de la rotación todavía no tiene endpoint, así
+                  que el control no se muestra: un botón que confirma un freeze
+                  que no ocurrió es peor que no ofrecerlo.
+                </p>
               </div>
             )}
           </section>
