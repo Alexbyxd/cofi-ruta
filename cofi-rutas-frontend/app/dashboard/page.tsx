@@ -30,7 +30,7 @@ export default function DashboardPage() {
     if (!isLoading && isAuthenticated && user) {
       const userRole = user.role || user.specialty;
       if (userRole === 'SUPERADMIN') {
-        router.replace('/superadmin');
+        router.replace('/admin');
       }
     } else if (!isLoading && !isAuthenticated) {
       router.replace('/login');
