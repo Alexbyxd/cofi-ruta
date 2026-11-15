@@ -1,5 +1,7 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { Roles } from './decorators/roles.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -21,7 +23,8 @@ interface SessionUser {
  * Better Auth atiende `auth/*` con un wildcard y se tragaría la ruta.
  */
 @Controller('panel-access')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('SUPERADMIN', 'OWNER')
 export class PanelAccessController {
   constructor(private readonly prisma: PrismaService) {}
 

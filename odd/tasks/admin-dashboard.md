@@ -26,7 +26,7 @@ S9: El seed crea de forma idempotente un dueño de cafetería: usuario con rol d
 
 ## Risk
 
-- item 2 (security): S7 introduce un gate de acceso a un panel administrativo. Un guard solo de cliente no es autoridad: la API debe seguir rechazando por rol. `RolesGuard` existe en el backend y está registrado sin uso, así que el panel de esta feature no expone datos reales todavía.
+- item 2 (security): S7 introduce un gate de acceso a un panel administrativo. El gate del cliente no es autoridad: la API rechaza por rol con `RolesGuard` + `@Roles(...)`, reconstruido en `feat(auth)` después de que la migración a Better Auth lo borrara junto al stack viejo. El panel sigue sin datos reales, así que la única ruta de panel que existe es `GET /api/v1/panel-access`.
 - item 6: el panel no tiene tests; la verificación es `tsc` + `next build` + smoke manual.
 
 ## Tasks
@@ -57,9 +57,9 @@ S9: El seed crea de forma idempotente un dueño de cafetería: usuario con rol d
 
 ## Known gaps
 
-- The guard is client-side only. `RolesGuard` exists in the backend and is still registered without
-  use: `GET /api/v1/panel-access` reports the role but never enforces it. A client guard is not access
-  control on its own.
+- El redirect del cliente está respaldado por el servidor: `GET /api/v1/panel-access` exige `@Roles('SUPERADMIN','OWNER')` con `JwtAuthGuard` +
+  `RolesGuard`, así que un `USER` recibe 403 y el panel lo manda a `/inicio`. Ningún otro endpoint de panel existe todavía: cuando se
+  agreguen los de datos, cada uno necesita su propio `@Roles(...)`.
 - Advisory findings from the approved review, still open: no timeout on the `/panel-access` fetch, no
   `orderBy` in the `merchantStaff` query, stale header comment in `src/lib/admin-access.ts`, the mobile
   nav label "Cuenta" pointing at the global-actions section, and no test for the controller.
