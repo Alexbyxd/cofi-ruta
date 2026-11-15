@@ -89,8 +89,9 @@ it is delivered as stacked PRs against `develop`, one contiguous commit range ea
 | B | `d29d6b9` | Frontend source relocation + Better Auth sessions |
 | C | `b592c1f..d51e7a8` | ODD docs + Better Auth base-path and route fixes |
 | D | `a0d2187` | Explicit Google account linking + OAuth popup polling, session-based auth hooks |
-| E | `7db25d7`, `528784f` | Superadmin component set + `/dashboard` composition |
-| F | this `docs(odd)` commit | Delivery strategy and slice boundaries |
+| E | `7db25d7`, `1cdac32` | Superadmin component set + `/dashboard` as the coffee drinker's home |
+| F | `5d20f11` | Delivery strategy and slice boundaries |
+| G | `68b8eec` | `/admin` console for SUPERADMIN and OWNER (`odd/tasks/admin-dashboard.md`) |
 
 Each slice is the native review candidate at its own boundary, never the accumulated branch.
 Cumulative authored lines since `origin/develop` are far past the ~400-line work-unit budget;
