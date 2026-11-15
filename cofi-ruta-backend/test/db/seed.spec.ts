@@ -120,8 +120,11 @@ describe('Seed idempotente (Fase 0)', () => {
       });
       expect(owner.merchantStaff[0].coffeeShopId).toBe(shop.id);
 
-      // Una segunda corrida no duplica la pertenencia.
-      expect(await prisma.merchantStaff.count()).toBe(1);
+      // Una segunda corrida no duplica la pertenencia de este dueño. Se cuenta
+      // por usuario: la base es compartida y otras corridas pueden dejar filas.
+      expect(
+        await prisma.merchantStaff.count({ where: { userId: owner.id } }),
+      ).toBe(1);
 
       const credential = await prisma.account.findUniqueOrThrow({
         where: {
@@ -149,6 +152,38 @@ describe('Seed idempotente (Fase 0)', () => {
       expect(
         await bcrypt.compare('owner-password-123', sameCredential.password!),
       ).toBe(true);
+    } finally {
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
+  });
+
+  it('creates no owner at all outside development and test without a password', async () => {
+    const previous = {
+      NODE_ENV: process.env.NODE_ENV,
+      OWNER_EMAIL: process.env.OWNER_EMAIL,
+      OWNER_PASSWORD: process.env.OWNER_PASSWORD,
+      OWNER_CAFE_SLUG: process.env.OWNER_CAFE_SLUG,
+    };
+    process.env.NODE_ENV = 'staging';
+    process.env.OWNER_EMAIL = 'dueno-staging@cofi.test';
+    delete process.env.OWNER_PASSWORD;
+    process.env.OWNER_CAFE_SLUG = 'perfecto-coffee-lounge';
+
+    try {
+      const summary = await seedDatabase(prisma);
+
+      expect(summary.merchantOwner).toBeNull();
+      expect(
+        await prisma.user.count({
+          where: { email: 'dueno-staging@cofi.test' },
+        }),
+      ).toBe(0);
     } finally {
       for (const [key, value] of Object.entries(previous)) {
         if (value === undefined) {
