@@ -84,6 +84,67 @@ describe('Seed idempotente (Fase 0)', () => {
     }
   });
 
+  it('creates an idempotent merchant OWNER whose panel access resolves', async () => {
+    const previous = {
+      OWNER_EMAIL: process.env.OWNER_EMAIL,
+      OWNER_PASSWORD: process.env.OWNER_PASSWORD,
+      OWNER_CAFE_SLUG: process.env.OWNER_CAFE_SLUG,
+    };
+    process.env.OWNER_EMAIL = 'dueno-seed@cofi.test';
+    process.env.OWNER_PASSWORD = 'owner-password-123';
+    process.env.OWNER_CAFE_SLUG = 'perfecto-coffee-lounge';
+
+    try {
+      const first = await seedDatabase(prisma);
+      const second = await seedDatabase(prisma);
+
+      expect(first.merchantOwner).toEqual({
+        email: 'dueno-seed@cofi.test',
+        coffeeShopSlug: 'perfecto-coffee-lounge',
+      });
+      expect(second.merchantOwner).toEqual(first.merchantOwner);
+
+      // La propiedad vive en MerchantStaff, no en User.role: el enum Role sólo
+      // tiene USER y SUPERADMIN.
+      const owner = await prisma.user.findUniqueOrThrow({
+        where: { email: 'dueno-seed@cofi.test' },
+        include: { merchantStaff: true },
+      });
+      expect(owner.role).toBe('USER');
+      expect(owner.merchantStaff).toHaveLength(1);
+      expect(owner.merchantStaff[0].role).toBe('OWNER');
+
+      const shop = await prisma.coffeeShop.findUniqueOrThrow({
+        where: { slug: 'perfecto-coffee-lounge' },
+        select: { id: true },
+      });
+      expect(owner.merchantStaff[0].coffeeShopId).toBe(shop.id);
+
+      // Una segunda corrida no duplica la pertenencia.
+      expect(await prisma.merchantStaff.count()).toBe(1);
+
+      const credential = await prisma.account.findUniqueOrThrow({
+        where: {
+          providerId_accountId: {
+            providerId: 'credential',
+            accountId: owner.id,
+          },
+        },
+      });
+      expect(
+        await bcrypt.compare('owner-password-123', credential.password!),
+      ).toBe(true);
+    } finally {
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
+  });
+
   it('creates every cafe as ACTIVE with hours, coordinates and a menu', async () => {
     await seedDatabase(prisma);
 

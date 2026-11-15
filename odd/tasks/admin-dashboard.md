@@ -22,6 +22,8 @@ S7: `/admin` tiene guard real por rol: sin rol SUPERADMIN ni OWNER no se entra.
 
 S8: Hoy `/dashboard` redirige un SUPERADMIN a `/superadmin`, una ruta que no existe. Ese destino pasa a `/admin`.
 
+S9: El seed crea de forma idempotente un dueño de cafetería: usuario con rol de cuenta `USER` más `MerchantStaff.role = OWNER` sobre una cafetería existente. Configurable con `OWNER_EMAIL` / `OWNER_PASSWORD` / `OWNER_CAFE_SLUG`; en producción no crea una contraseña conocida si falta `OWNER_PASSWORD`. Sin esta fila, `/admin` no puede resolver a un dueño.
+
 ## Risk
 
 - item 2 (security): S7 introduce un gate de acceso a un panel administrativo. Un guard solo de cliente no es autoridad: la API debe seguir rechazando por rol. `RolesGuard` existe en el backend y está registrado sin uso, así que el panel de esta feature no expone datos reales todavía.
@@ -37,6 +39,7 @@ S8: Hoy `/dashboard` redirige un SUPERADMIN a `/superadmin`, una ruta que no exi
 | T4 | S6, S8 | `/dashboard` redirect `/superadmin` → `/admin`; no admin widgets in the home | `68b8eec` |
 | T5 | all | Verify `tsc`, `vitest`, `next build`, `eslint` on touched files | see evidence |
 | T6 | — | Record evidence in this document | `docs(odd)` |
+| T7 | S2, S3, S9 | Seed idempotente del dueño + `MerchantStaff OWNER` + spec de DB | `feat(seed)` |
 
 ## Evidence (T5)
 
@@ -44,6 +47,10 @@ S8: Hoy `/dashboard` redirige un SUPERADMIN a `/superadmin`, una ruta que no exi
 - `tsc -p tsconfig.json --noEmit`: clean.
 - `eslint app/admin/page.tsx src/components/dashboard/AdminBottomNav.tsx`: clean.
 - `vitest run`: 3 files / 12 tests, unchanged (no new test covers the panel).
+- `test:db` (backend, con Postgres levantado): 6 suites / 43 tests verdes, incluido `test/db/seed.spec.ts`
+  con el caso del dueño.
+- Seed real corrido dos veces: `Dueño listo: owner@cofirutas.bo → perfecto-coffee-lounge (OWNER)`, y en
+  la base queda exactamente **1** fila `MerchantStaff` (`OWNER`) y 1 usuario con ese email.
 - Not verified: no browser smoke of `/admin` with a SUPERADMIN or OWNER session, and no visual
   comparison against the Stitch screens. Nothing on the panel calls the API yet, so there is no
   runtime data to check.
@@ -51,7 +58,11 @@ S8: Hoy `/dashboard` redirige un SUPERADMIN a `/superadmin`, una ruta que no exi
 ## Known gaps
 
 - The guard is client-side only. `RolesGuard` exists in the backend and is still registered without
-  use, so no endpoint enforces the role yet. A client guard is not access control on its own.
+  use: `GET /api/v1/panel-access` reports the role but never enforces it. A client guard is not access
+  control on its own.
+- Advisory findings from the approved review, still open: no timeout on the `/panel-access` fetch, no
+  `orderBy` in the `merchantStaff` query, stale header comment in `src/lib/admin-access.ts`, the mobile
+  nav label "Cuenta" pointing at the global-actions section, and no test for the controller.
 - Panel data is local to the components; no endpoint feeds the KPIs, charts, table or feed.
 - `EmergencyFreezeButton` still logs its intent and holds a `TODO` for the freeze endpoint.
 - The mobile bottom nav uses section anchors and a four-module set; the Stitch mobile screen shows a

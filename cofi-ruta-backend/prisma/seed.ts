@@ -23,12 +23,16 @@ export interface SeedSummary {
   menuItems: number;
   coffeeShopTags: number;
   superAdminEmail: string | null;
+  merchantOwner: { email: string; coffeeShopSlug: string } | null;
 }
 
 const CAFES_FILE = join(__dirname, 'seed-data', 'cafes.json');
 
 const DEFAULT_SUPERADMIN_EMAIL = 'superadmin@cofirutas.bo';
 const DEFAULT_DEV_SUPERADMIN_PASSWORD = 'CofiRutas2026!';
+
+const DEFAULT_OWNER_EMAIL = 'owner@cofirutas.bo';
+const DEFAULT_DEV_OWNER_PASSWORD = 'CofiRutas2026!';
 
 // Better Auth is configured with bcrypt cost 12 (see src/auth/better-auth/config.ts).
 const BCRYPT_ROUNDS = 12;
@@ -84,6 +88,81 @@ export async function seedSuperAdmin(
   });
 
   return { email: user.email };
+}
+
+/**
+ * Crea (o reafirma) un dueño de cafetería, la tercera identidad del sistema.
+ *
+ * `User.role` sólo puede ser `USER` o `SUPERADMIN`; la propiedad vive en
+ * `MerchantStaff.role = OWNER`. Sin esta fila el panel administrativo no puede
+ * resolver a un dueño y lo trata como usuario normal.
+ *
+ * - `OWNER_EMAIL` / `OWNER_PASSWORD` configuran la credencial.
+ * - `OWNER_CAFE_SLUG` elige la cafetería; por defecto, la primera del seed.
+ * - En producción no se crea una contraseña conocida si no se configuró una.
+ */
+export async function seedMerchantOwner(
+  prisma: PrismaClient,
+  coffeeShopSlug: string | null,
+): Promise<{ email: string; coffeeShopSlug: string } | null> {
+  if (!coffeeShopSlug) {
+    return null;
+  }
+
+  const configuredPassword = process.env.OWNER_PASSWORD;
+  if (!configuredPassword && process.env.NODE_ENV === 'production') {
+    return null;
+  }
+
+  const slug = (process.env.OWNER_CAFE_SLUG ?? coffeeShopSlug).trim();
+  const shop = await prisma.coffeeShop.findUnique({
+    where: { slug },
+    select: { id: true, slug: true },
+  });
+  if (!shop) {
+    return null;
+  }
+
+  const email = (process.env.OWNER_EMAIL ?? DEFAULT_OWNER_EMAIL)
+    .toLowerCase()
+    .trim();
+  const password = configuredPassword ?? DEFAULT_DEV_OWNER_PASSWORD;
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+  // El rol de cuenta no se toca: un SUPERADMIN que también sea dueño no debe
+  // perder su rol por correr el seed.
+  const user = await prisma.user.upsert({
+    where: { email },
+    update: { isActive: true },
+    create: {
+      email,
+      fullName: 'Dueño de Cafetería CofiRutas',
+    },
+    select: { id: true, email: true },
+  });
+
+  await prisma.account.upsert({
+    where: {
+      providerId_accountId: { providerId: 'credential', accountId: user.id },
+    },
+    update: { password: passwordHash },
+    create: {
+      userId: user.id,
+      providerId: 'credential',
+      accountId: user.id,
+      password: passwordHash,
+    },
+  });
+
+  await prisma.merchantStaff.upsert({
+    where: {
+      userId_coffeeShopId: { userId: user.id, coffeeShopId: shop.id },
+    },
+    update: { role: 'OWNER' },
+    create: { userId: user.id, coffeeShopId: shop.id, role: 'OWNER' },
+  });
+
+  return { email: user.email, coffeeShopSlug: shop.slug };
 }
 
 export function loadCafes(): CafeSeed[] {
@@ -196,6 +275,9 @@ export async function seedDatabase(prisma: PrismaClient): Promise<SeedSummary> {
     });
   }
 
+  // El dueño necesita que su cafetería ya exista.
+  const merchantOwner = await seedMerchantOwner(prisma, cafes[0]?.slug ?? null);
+
   return {
     categories: await prisma.category.count(),
     tags: await prisma.tag.count(),
@@ -204,6 +286,7 @@ export async function seedDatabase(prisma: PrismaClient): Promise<SeedSummary> {
     menuItems: await prisma.menuItem.count(),
     coffeeShopTags: await prisma.coffeeShopTag.count(),
     superAdminEmail: superAdmin?.email ?? null,
+    merchantOwner,
   };
 }
 
@@ -234,6 +317,11 @@ async function main(): Promise<void> {
     );
     if (summary.superAdminEmail) {
       console.log(`SuperAdmin listo: ${summary.superAdminEmail}`);
+    }
+    if (summary.merchantOwner) {
+      console.log(
+        `Dueño listo: ${summary.merchantOwner.email} → ${summary.merchantOwner.coffeeShopSlug} (OWNER)`,
+      );
     }
   } finally {
     await prisma.$disconnect();
