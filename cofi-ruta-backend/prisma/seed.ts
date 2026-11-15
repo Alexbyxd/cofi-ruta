@@ -109,9 +109,13 @@ export async function seedMerchantOwner(
     return null;
   }
 
-  // Un OWNER_PASSWORD vacío es una variable mal puesta, no una contraseña: se
-  // trata como ausente para no hashear un string vacío.
-  const configuredPassword = process.env.OWNER_PASSWORD?.trim() || undefined;
+  // Un OWNER_PASSWORD vacío cuenta como ausente, pero el valor configurado se
+  // hashea tal cual: recortarlo cambiaría la contraseña del usuario.
+  const rawOwnerPassword = process.env.OWNER_PASSWORD;
+  const configuredPassword =
+    rawOwnerPassword === undefined || rawOwnerPassword === ''
+      ? undefined
+      : rawOwnerPassword;
   // La contraseña de desarrollo sólo se usa cuando el entorno la declara como
   // tal: un despliegue con NODE_ENV sin definir o distinto de development/test
   // no puede terminar con una credencial conocida.
