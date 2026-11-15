@@ -134,6 +134,21 @@ describe('Seed idempotente (Fase 0)', () => {
       expect(
         await bcrypt.compare('owner-password-123', credential.password!),
       ).toBe(true);
+
+      // Reejecutar con otra contraseña no rota la credencial existente.
+      process.env.OWNER_PASSWORD = 'otra-password-456';
+      await seedDatabase(prisma);
+      const sameCredential = await prisma.account.findUniqueOrThrow({
+        where: {
+          providerId_accountId: {
+            providerId: 'credential',
+            accountId: owner.id,
+          },
+        },
+      });
+      expect(
+        await bcrypt.compare('owner-password-123', sameCredential.password!),
+      ).toBe(true);
     } finally {
       for (const [key, value] of Object.entries(previous)) {
         if (value === undefined) {

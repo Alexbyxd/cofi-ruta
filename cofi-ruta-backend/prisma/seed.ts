@@ -110,7 +110,12 @@ export async function seedMerchantOwner(
   }
 
   const configuredPassword = process.env.OWNER_PASSWORD;
-  if (!configuredPassword && process.env.NODE_ENV === 'production') {
+  // La contraseña de desarrollo sólo se usa cuando el entorno la declara como
+  // tal: un despliegue con NODE_ENV sin definir o distinto de development/test
+  // no puede terminar con una credencial conocida.
+  const allowsDevCredentials =
+    process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+  if (!configuredPassword && !allowsDevCredentials) {
     return null;
   }
 
@@ -120,14 +125,16 @@ export async function seedMerchantOwner(
     select: { id: true, slug: true },
   });
   if (!shop) {
-    return null;
+    // Saltar en silencio dejaría el panel sin dueño sin que nadie se entere.
+    throw new Error(
+      `seedMerchantOwner: la cafetería "${slug}" no existe. Corregí OWNER_CAFE_SLUG o sembrá el catálogo primero.`,
+    );
   }
 
   const email = (process.env.OWNER_EMAIL ?? DEFAULT_OWNER_EMAIL)
     .toLowerCase()
     .trim();
   const password = configuredPassword ?? DEFAULT_DEV_OWNER_PASSWORD;
-  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
   // El rol de cuenta no se toca: un SUPERADMIN que también sea dueño no debe
   // perder su rol por correr el seed.
@@ -141,18 +148,26 @@ export async function seedMerchantOwner(
     select: { id: true, email: true },
   });
 
-  await prisma.account.upsert({
-    where: {
-      providerId_accountId: { providerId: 'credential', accountId: user.id },
-    },
-    update: { password: passwordHash },
-    create: {
-      userId: user.id,
-      providerId: 'credential',
-      accountId: user.id,
-      password: passwordHash,
-    },
+  // La credencial existente no se toca: el seed afirma, no rota. Si
+  // OWNER_EMAIL apunta a una cuenta real, reescribirle la contraseña sería un
+  // secuestro de cuenta, no un seed.
+  const accountWhere = {
+    providerId_accountId: { providerId: 'credential', accountId: user.id },
+  };
+  const existingCredential = await prisma.account.findUnique({
+    where: accountWhere,
+    select: { id: true },
   });
+  if (!existingCredential) {
+    await prisma.account.create({
+      data: {
+        userId: user.id,
+        providerId: 'credential',
+        accountId: user.id,
+        password: await bcrypt.hash(password, BCRYPT_ROUNDS),
+      },
+    });
+  }
 
   await prisma.merchantStaff.upsert({
     where: {
