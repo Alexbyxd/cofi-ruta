@@ -20,6 +20,24 @@ const env = {
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
 };
 
+/**
+ * Better Auth takes the router base path from the pathname of `baseURL`
+ * whenever that URL has one, silently ignoring an explicit `basePath`. Keep the
+ * origin here so `basePath` is always the single source of truth.
+ */
+function toOrigin(value: string, fallbackPort: number): string {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return `http://localhost:${fallbackPort}`;
+  }
+}
+
+const authBaseURL = toOrigin(
+  env.BETTER_AUTH_URL || `http://localhost:${env.BACKEND_PORT}`,
+  env.BACKEND_PORT,
+);
+
 // Create Prisma client with pg adapter (same as PrismaService)
 const pool = new Pool({ connectionString: env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -35,7 +53,11 @@ export const auth = betterAuth({
   }),
 
   // === BASE URL ===
-  baseURL: env.BETTER_AUTH_URL || `http://localhost:${env.BACKEND_PORT}`,
+  // Neither value may include a path: Better Auth builds the router base path
+  // from baseURL + basePath, and a path inside baseURL would silently override
+  // basePath. Both must agree with the Nest mount and the frontend auth client.
+  baseURL: authBaseURL,
+  basePath: '/api/v1/auth',
 
   // === SECRET ===
   secret: env.BETTER_AUTH_SECRET || env.JWT_ACCESS_SECRET,
@@ -61,6 +83,24 @@ export const auth = betterAuth({
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
       scope: ['openid', 'email', 'profile'],
+    },
+  },
+
+  // === ACCOUNT LINKING ===
+  // Linking an existing email/password account to Google must be an explicit
+  // user decision, so implicit linking on sign-in is disabled: signing in with
+  // Google on an email that already exists returns `account_not_linked`
+  // instead of silently merging the accounts. The frontend then offers the
+  // link through `linkSocial()` while the user has an active session.
+  // `allowDifferentEmails` stays false: a Google account with a different
+  // email is never merged into another account. The Google identity wins, so
+  // the user ends up signed in as that Google account.
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ['google'],
+      disableImplicitLinking: true,
+      allowDifferentEmails: false,
     },
   },
 

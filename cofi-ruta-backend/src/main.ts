@@ -9,6 +9,9 @@ async function bootstrap() {
   // body that Better Auth's web handler needs.
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
+  // Better Auth is mounted once, by BetterAuthController at /api/v1/auth/*.
+  // Its base path lives in src/auth/better-auth/config.ts and must match the
+  // frontend auth client base URL.
   app.setGlobalPrefix('api/v1');
   app.enableCors({
     origin: env.FRONTEND_URL,

@@ -16,6 +16,10 @@ import { getAuth } from './auth.provider';
  * standard Web `Request`, so the Express request is translated instead of being
  * passed through: better-call parses `request.url` with `new URL()`, which
  * throws on a relative path.
+ *
+ * The full original path is forwarded (`/api/v1/auth/...`) because Better Auth
+ * derives its router base path from the configured base URL; stripping the mount
+ * prefix makes every endpoint 404.
  */
 @Controller('auth')
 export class BetterAuthController {
@@ -26,7 +30,7 @@ export class BetterAuthController {
     @Req() req: RawBodyRequest<Request>,
     @Res() res: Response,
   ): Promise<void> {
-    const betterAuthUrl = req.originalUrl.replace('/api/v1/auth', '/api/auth');
+    const betterAuthUrl = req.originalUrl;
     const origin = `${req.protocol}://${req.get('host')}`;
 
     const headers = new Headers();
@@ -43,10 +47,14 @@ export class BetterAuthController {
       init.body = new Uint8Array(req.rawBody);
     }
 
+    this.logger.log(`Better Auth request: ${req.method} ${betterAuthUrl} -> ${origin}`);
     try {
+      const requestUrl = new URL(betterAuthUrl, origin);
+      this.logger.log(`Better Auth full URL: ${requestUrl.href}`);
       const response = await getAuth().handler(
-        new Request(new URL(betterAuthUrl, origin), init),
+        new Request(requestUrl, init),
       );
+      this.logger.log(`Better Auth response: ${response.status}`);
 
       res.status(response.status);
       response.headers.forEach((value, key) => {
