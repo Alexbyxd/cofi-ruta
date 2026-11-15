@@ -36,3 +36,80 @@ describe('PanelAccessController authorization wiring', () => {
     ).toEqual([JwtAuthGuard, RolesGuard]);
   });
 });
+
+/**
+ * El wiring del guard no dice nada sobre lo que la ruta responde. Estos tests
+ * fijan la resolución de la pertenencia de merchant, que es lo único que el
+ * panel usa para dejar entrar a un dueño de cafetería.
+ */
+describe('PanelAccessController merchant role resolution', () => {
+  interface Membership {
+    role: string;
+  }
+
+  function build(memberships: Membership[]) {
+    const findMany = jest.fn(() => Promise.resolve(memberships));
+    const prisma = { merchantStaff: { findMany } };
+    const controller = new PanelAccessController(prisma as never);
+
+    return { controller, findMany };
+  }
+
+  it('reports no merchant role when the user has no memberships', async () => {
+    const { controller } = build([]);
+
+    await expect(
+      controller.getPanelAccess({ id: 'user_1', role: 'USER' }),
+    ).resolves.toEqual({ accountRole: 'USER', merchantRole: null });
+  });
+
+  it('reports the single membership role', async () => {
+    const { controller } = build([{ role: 'STAFF' }]);
+
+    await expect(
+      controller.getPanelAccess({ id: 'user_1', role: 'USER' }),
+    ).resolves.toEqual({ accountRole: 'USER', merchantRole: 'STAFF' });
+  });
+
+  it('lets OWNER win over every other membership', async () => {
+    const { controller } = build([
+      { role: 'STAFF' },
+      { role: 'MANAGER' },
+      { role: 'OWNER' },
+    ]);
+
+    await expect(
+      controller.getPanelAccess({ id: 'user_1', role: 'USER' }),
+    ).resolves.toEqual({ accountRole: 'USER', merchantRole: 'OWNER' });
+  });
+
+  it('ranks MANAGER above STAFF instead of trusting the row order', async () => {
+    const staffFirst = build([{ role: 'STAFF' }, { role: 'MANAGER' }]);
+    const managerFirst = build([{ role: 'MANAGER' }, { role: 'STAFF' }]);
+
+    await expect(
+      staffFirst.controller.getPanelAccess({ id: 'user_1', role: 'USER' }),
+    ).resolves.toEqual({ accountRole: 'USER', merchantRole: 'MANAGER' });
+    await expect(
+      managerFirst.controller.getPanelAccess({ id: 'user_1', role: 'USER' }),
+    ).resolves.toEqual({ accountRole: 'USER', merchantRole: 'MANAGER' });
+  });
+
+  it('skips the membership query when the session carries no user id', async () => {
+    const { controller, findMany } = build([{ role: 'OWNER' }]);
+
+    await expect(controller.getPanelAccess(undefined)).resolves.toEqual({
+      accountRole: 'USER',
+      merchantRole: null,
+    });
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it('passes a SUPERADMIN account role through untouched', async () => {
+    const { controller } = build([]);
+
+    await expect(
+      controller.getPanelAccess({ id: 'user_1', role: 'SUPERADMIN' }),
+    ).resolves.toEqual({ accountRole: 'SUPERADMIN', merchantRole: null });
+  });
+});

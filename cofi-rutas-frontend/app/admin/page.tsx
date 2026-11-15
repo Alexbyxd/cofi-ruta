@@ -14,6 +14,7 @@ import {
 } from '@/components/dashboard';
 import { AdminBottomNav } from '@/components/dashboard/AdminBottomNav';
 import { resolvePanelAccess } from '@/lib/admin-access';
+import { fetchPanelAccess } from '@/lib/panel-access';
 
 /**
  * Base del auth en la API. `panel-access` no vive bajo `/auth` porque ese
@@ -50,18 +51,14 @@ export default function AdminPage() {
 
     void (async () => {
       try {
-        const response = await fetch(`${API_BASE}/panel-access`, {
-          credentials: 'include',
-        });
-        if (response.ok) {
-          const data = (await response.json()) as {
-            merchantRole?: string | null;
-          };
-          if (!cancelled) setMerchantRole(data.merchantRole ?? null);
-        }
+        // Con timeout propio: sin él, una API colgada deja el spinner para
+        // siempre, porque `accessResolved` nunca se marcaría.
+        const payload = await fetchPanelAccess(API_BASE);
+        if (!cancelled) setMerchantRole(payload?.merchantRole ?? null);
       } catch {
-        // Sin respuesta del backend la pertenencia de merchant no se puede
-        // resolver: el usuario queda como USER y fuera del panel.
+        // `fetchPanelAccess` no lanza: devuelve null en 403, timeout o red
+        // caída. El guard queda igual para no dejar el spinner colgado ante un
+        // fallo inesperado; sin pertenencia, el usuario queda como USER.
       } finally {
         if (!cancelled) setAccessResolved(true);
       }
@@ -168,7 +165,7 @@ export default function AdminPage() {
             </section>
           </div>
 
-          <section id="cuenta" aria-label="Acciones globales" className="flex flex-col gap-3">
+          <section id="acciones" aria-label="Acciones globales" className="flex flex-col gap-3">
             <h2 className="font-display font-black text-lg uppercase text-espresso-ink">
               Acciones globales
             </h2>

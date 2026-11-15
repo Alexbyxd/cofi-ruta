@@ -9,12 +9,11 @@
  *    `MerchantStaff.role === MerchantRole.OWNER`, apuntando desde `MerchantStaff.userId`.
  * 3. `USER` — usuario normal de la app: usa `/inicio` y su home, nunca el panel.
  *
- * El backend todavía no expone la pertenencia de merchant: no hay módulo de
- * merchants, ninguna consulta usa `MerchantStaff` y la sesión de Better Auth
- * sólo devuelve `User.role`. Por eso `resolvePanelAccess` acepta una
- * pertenencia opcional y, mientras nadie la provea, un dueño de cafetería se
- * resuelve como `USER` y queda fuera del panel. Cuando exista el endpoint de
- * acceso, alcanza con pasarle su `merchantRole`.
+ * El backend expone la pertenencia en `GET /api/v1/panel-access`, que responde
+ * `{ accountRole, merchantRole }`: `merchantRole` es la `MerchantStaff.role` de
+ * mayor rango del usuario en sesión (`OWNER > MANAGER > STAFF`) o `null`. El
+ * panel (`app/admin/page.tsx`) alimenta ese valor a `resolvePanelAccess`; sin
+ * una pertenencia `OWNER`, un dueño de cafetería no entra al panel.
  */
 export type PanelRole = 'SUPERADMIN' | 'OWNER' | 'USER';
 

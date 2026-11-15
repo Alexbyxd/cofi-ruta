@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Activity, LayoutDashboard, Store, User } from 'lucide-react';
+import { Activity, LayoutDashboard, ShieldCheck, Store } from 'lucide-react';
 
 interface AdminNavItem {
   href: string;
@@ -14,7 +14,7 @@ const ITEMS: AdminNavItem[] = [
   { href: '#resumen', label: 'Resumen', icon: LayoutDashboard },
   { href: '#cafeterias', label: 'Cafés', icon: Store },
   { href: '#checkins', label: 'Check-ins', icon: Activity },
-  { href: '#cuenta', label: 'Cuenta', icon: User },
+  { href: '#acciones', label: 'Acciones', icon: ShieldCheck },
 ];
 
 /**
@@ -23,6 +23,10 @@ const ITEMS: AdminNavItem[] = [
  * El diseño mobile de Stitch no tiene sidebar: la navegación entre módulos vive
  * en esta barra. Solo se muestra por debajo de `lg`, donde el sidebar toma el
  * relevo. Los destinos son anclas a los módulos de la misma página, no rutas.
+ *
+ * Las etiquetas nombran el módulo al que llevan: el último ancla es la sección
+ * de acciones globales (PIN diario y freeze de rotación), no la cuenta del
+ * operador, así que se llama "Acciones".
  */
 export const AdminBottomNav: React.FC = () => (
   <nav

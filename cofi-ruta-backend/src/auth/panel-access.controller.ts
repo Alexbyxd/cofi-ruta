@@ -4,10 +4,33 @@ import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { PrismaService } from '../prisma/prisma.service';
+import type { MerchantRole } from '@prisma/client';
 
 interface SessionUser {
   id?: string;
   role?: string;
+}
+
+/**
+ * Jerarquía de `MerchantRole` (OWNER > MANAGER > STAFF).
+ *
+ * La resolución no puede depender del orden en que Postgres devuelva las filas
+ * de `MerchantStaff`: un usuario con varias pertenencias tiene que resolver
+ * siempre a la de mayor rango. El mapa se tipa contra el enum de Prisma, así que
+ * agregar un rol nuevo rompe la compilación en lugar de quedar silenciosamente
+ * fuera. Un rol ajeno al enum se rango 0 y no se reporta, que es el lado seguro:
+ * el panel exige exactamente `OWNER` para entrar.
+ */
+const MERCHANT_ROLE_RANK: Record<MerchantRole, number> = {
+  OWNER: 3,
+  MANAGER: 2,
+  STAFF: 1,
+};
+
+function rankOfMerchantRole(role: string): number {
+  return Object.prototype.hasOwnProperty.call(MERCHANT_ROLE_RANK, role)
+    ? MERCHANT_ROLE_RANK[role as MerchantRole]
+    : 0;
 }
 
 /**
@@ -40,9 +63,11 @@ export class PanelAccessController {
       : [];
 
     // Un dueño manda sobre las demás pertenencias que pueda tener.
-    const merchantRole = memberships.some((staff) => staff.role === 'OWNER')
-      ? 'OWNER'
-      : (memberships[0]?.role ?? null);
+    const merchantRole = memberships.reduce<string | null>((best, staff) => {
+      const currentRank = best ? rankOfMerchantRole(best) : 0;
+
+      return rankOfMerchantRole(staff.role) > currentRank ? staff.role : best;
+    }, null);
 
     return { accountRole, merchantRole };
   }

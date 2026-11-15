@@ -60,9 +60,13 @@ S9: El seed crea de forma idempotente un dueño de cafetería: usuario con rol d
 - El redirect del cliente está respaldado por el servidor: `GET /api/v1/panel-access` exige `@Roles('SUPERADMIN','OWNER')` con `JwtAuthGuard` +
   `RolesGuard`, así que un `USER` recibe 403 y el panel lo manda a `/inicio`. Ningún otro endpoint de panel existe todavía: cuando se
   agreguen los de datos, cada uno necesita su propio `@Roles(...)`.
-- Advisory findings from the approved review, still open: no timeout on the `/panel-access` fetch, no
-  `orderBy` in the `merchantStaff` query, stale header comment in `src/lib/admin-access.ts`, the mobile
-  nav label "Cuenta" pointing at the global-actions section, and no test for the controller.
+- Advisory findings from the approved review: **resueltos** el `orderBy` de la query `merchantStaff` (se
+  reemplazó por una selección por rango `OWNER > MANAGER > STAFF`, que ya no depende del orden de filas),
+  el comentario de cabecera de `src/lib/admin-access.ts`, la falta de test del controller
+  (`panel-access.controller.spec.ts`, 8 casos) y el fetch de `/panel-access` sin timeout
+  (`src/lib/panel-access.ts` con `AbortSignal`, 5 casos) y el label "Cuenta" de la nav mobile, que ahora se
+  llama "Acciones" y apunta a `#acciones`, la sección de PIN diario y freeze de rotación. **No queda ningún
+  advisory abierto de esa revisión.**
 - Panel data is local to the components; no endpoint feeds the KPIs, charts, table or feed.
 - `EmergencyFreezeButton` still logs its intent and holds a `TODO` for the freeze endpoint.
 - The mobile bottom nav uses section anchors and a four-module set; the Stitch mobile screen shows a
@@ -87,3 +91,38 @@ S9: El seed crea de forma idempotente un dueño de cafetería: usuario con rol d
 - `7db25d7` agregó 8 componentes de dashboard administrativo y nadie los importa: código muerto hasta esta feature.
 - `1cdac32` convirtió `/dashboard` en la home del cafetero; conserva el redirect a `/superadmin` (ruta inexistente).
 - Los 3 HTML de Stitch en la raíz del repo están sin trackear: `dashboard-superadmin-desktop.html` (CofiRutas Superadmin - Oruro Operations HQ), `stitch-inicio-desktop.html`, `stitch-inicio-mobile.html`.
+
+### L4 (resolución de la pertenencia de merchant, 2026-11-15)
+
+- Corregido un dato falso de la documentación: `GET /api/v1/panel-access` **ya** resolvía `merchantRole`
+  desde `MerchantStaff` y `app/admin/page.tsx` ya lo consumía. El plan original de "crear el módulo de
+  merchants" partía de un gap inexistente; se verificó contra el árbol antes de escribir código.
+- Bug real encontrado: la query no tenía `orderBy` y el código usaba `memberships[0]?.role`, así que con
+  varias pertenencias el resultado dependía del orden arbitrario de Postgres. RED: `[{STAFF},{MANAGER}]`
+  devolvía `STAFF`. GREEN: selección por rango `OWNER > MANAGER > STAFF` en `MERCHANT_ROLE_RANK`.
+- Evidencia: `pnpm exec jest src/auth/panel-access.controller.spec.ts` 8/8; `pnpm test:unit` 12 suites /
+  55 tests verdes.
+- No cambia el contrato de la respuesta (`{ accountRole, merchantRole }`) ni amplía el acceso: el panel
+  solo admite `merchantRole === 'OWNER'`, y la ruta sigue respaldada por `JwtAuthGuard` + `RolesGuard`.
+
+### L5 (timeout del fetch de `/panel-access`, 2026-11-15)
+
+- Advisory real: el panel bloquea la pantalla con un spinner hasta que `accessResolved` es `true`, y la
+  lectura de `/panel-access` no tenía cota. Una API colgada dejaba "Cargando consola..." para siempre.
+- Se extrajo la lectura a `src/lib/panel-access.ts` (`fetchPanelAccess`, `PANEL_ACCESS_TIMEOUT_MS = 8000`)
+  con `AbortController` + `Promise.race` (el race cubre también a un `fetchImpl` que ignore la señal).
+  Devuelve `null` en 403, timeout, red caída o JSON inválido: sin pertenencia válida no se entra al panel.
+- `app/admin/page.tsx` consume el módulo; el `finally` sigue marcando `accessResolved` en todos los casos.
+- Evidencia: `pnpm exec vitest run src/lib/panel-access.spec.ts` 5/5; `pnpm test` 5 archivos / 22 tests;
+  `tsc --noEmit` y `eslint` sobre los archivos tocados, limpios.
+
+### L6 (label "Cuenta" de la nav mobile, 2026-11-15)
+
+- El ítem `#cuenta` de `AdminBottomNav` se llamaba "Cuenta" con ícono de usuario, pero la sección destino es
+  `aria-label="Acciones globales"`: PIN diario y freeze de rotación. Para un OWNER ni siquiera hay acciones,
+  solo una nota explicando que no le corresponden. La etiqueta prometía una pantalla de cuenta inexistente.
+- Se renombró a "Acciones" con ícono `ShieldCheck` y el ancla pasó de `#cuenta` a `#acciones`, así el label
+  nombra el módulo al que lleva. Verificación: los cuatro `href` de la nav (`#resumen`, `#cafeterias`,
+  `#checkins`, `#acciones`) existen como `id` en `app/admin/page.tsx`; `tsc --noEmit` y `eslint` limpios.
+- Sin test propio: es copy/estructura, no comportamiento. El bucle de la nav ya se prueba en el
+  comportamiento que importa —qué acceso resuelve el panel— vía `admin-access.spec.ts` y el spec del módulo.
