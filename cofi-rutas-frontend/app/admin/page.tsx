@@ -14,15 +14,7 @@ import {
   SuperadminSidebar,
 } from '@/components/dashboard';
 import { AdminBottomNav } from '@/components/dashboard/AdminBottomNav';
-
-/**
- * Roles que entran al panel administrativo.
- *
- * SUPERADMIN ve todos los módulos. OWNER es el dueño de una cafetería: ve el
- * panel de su red, pero las acciones globales (generar PIN diario y congelar la
- * rotación) quedan fuera de su alcance.
- */
-const ADMIN_ROLES = ['SUPERADMIN', 'OWNER'];
+import { resolvePanelAccess } from '@/lib/admin-access';
 
 /**
  * Panel administrativo en `/admin`.
@@ -40,9 +32,9 @@ export default function AdminPage() {
   const [pinModalOpen, setPinModalOpen] = useState(false);
   const [frozen, setFrozen] = useState(false);
 
-  const role = user?.role ?? '';
-  const isOwner = role === 'OWNER';
-  const canAccess = ADMIN_ROLES.includes(role);
+  const access = resolvePanelAccess(user);
+  const isOwner = access.role === 'OWNER';
+  const canAccess = access.canAccess;
 
   useEffect(() => {
     if (isLoading) return;
@@ -98,7 +90,7 @@ export default function AdminPage() {
             name: userName,
             email: userEmail,
             avatarUrl,
-            role,
+            role: access.role,
           }}
           sidebarCollapsed={sidebarCollapsed}
           onMenuClick={() => setSidebarOpen(true)}
@@ -172,7 +164,7 @@ export default function AdminPage() {
         <AdminBottomNav />
       </div>
 
-      {!isOwner && (
+      {!isOwner && access.canRunGlobalActions && (
         <PINGeneratorModal
           isOpen={pinModalOpen}
           onClose={() => setPinModalOpen(false)}
