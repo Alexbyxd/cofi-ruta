@@ -2,7 +2,7 @@
 
 ## Header
 - **Feature**: Migrate custom NestJS/Prisma auth to Better Auth
-- **Branch**: `feat/better-auth-migration`
+- **Branch**: `feat/login-desktop-responsive`
 - **Author**: alexbyxd
 - **Date**: 2025
 
@@ -78,6 +78,24 @@ Unit and DB suites run on Node 22 + ts-jest/CJS, where Jest cannot `require()` B
 | T23 | S12 | Rewrite `test/db/auth.spec.ts` to app-owned invariants | done (uncommitted) |
 | T24 | S7-S12 | Verify `test:unit`, `test:db`, frontend `test`; document pending E2E | done (uncommitted) |
 
+## Delivery
+
+Strategy: **auto-chain**. The branch carries two features (auth migration, superadmin dashboard), so
+it is delivered as stacked PRs against `develop`, one contiguous commit range each:
+
+| Slice | Commits | Content |
+|-------|---------|---------|
+| A | `7f4f431` | Backend migration to Better Auth 1.7 |
+| B | `d29d6b9` | Frontend source relocation + Better Auth sessions |
+| C | `b592c1f..d51e7a8` | ODD docs + Better Auth base-path and route fixes |
+| D | `a0d2187` | Explicit Google account linking + OAuth popup polling, session-based auth hooks |
+| E | `7db25d7`, `528784f` | Superadmin component set + `/dashboard` composition |
+| F | this `docs(odd)` commit | Delivery strategy and slice boundaries |
+
+Each slice is the native review candidate at its own boundary, never the accumulated branch.
+Cumulative authored lines since `origin/develop` are far past the ~400-line work-unit budget;
+that is why slices are promoted to chained PRs instead of one review.
+
 ## Log
 
 ### L1 (Original Request)
@@ -111,3 +129,25 @@ Evidence: unit suites fail on `ERR_REQUIRE_ESM` (better-auth); DB suites fail on
 - `prisma migrate diff` residual: only DB-side defaults and the raw trigram indexes that the datamodel cannot express.
 - Deleted obsolete `scripts/migrate-to-better-auth.ts` (superseded by the SQL migrations; it referenced dropped columns).
 - Known gap (out of this feature): `DuoLinkModal` → `src/services/pairing.service.ts` still sends `Authorization: Bearer <localStorage token>`, which Better Auth ignores. Auth works with cookies; pairing UI needs the same cookie/credentials treatment. E2E auth tests (T17) remain pending.
+
+### L9 (2026-11-15, commits and verification)
+
+Slices D–E committed on `feat/login-desktop-responsive`, each after the local suite was green:
+`d51e7a8` (backend base path + explicit linking + controller spec), `a0d2187` (frontend link
+prompt + popup polling), `7db25d7` (dashboard component set), `528784f` (`/dashboard` composition).
+
+Evidence after the commits:
+
+- Backend: `pnpm build` green; `pnpm test:unit` 10 suites / 37 tests green.
+- Backend DB suites: **not run**, no Postgres reachable on `localhost:5432` and no compose stack up.
+- Frontend: `tsc --noEmit` green; `vitest run` 3 files / 12 tests green; `next build` green
+  (`/`, `/auth/callback`, `/dashboard`, `/inicio`, `/login` prerendered).
+- Frontend lint: 1 error + 1 warning remain in `src/hooks/useAuth.ts`
+  (`useEffect(() => setMounted(true), [])`, unused `specialty`); both exist at `fa47fe2`, so they are
+  pre-existing and untouched by this feature.
+- Coverage debt: the frontend suite is 12 tests because `src/services/auth.service.ts` and its specs
+  were deleted in `a0d2187` and not ported. Porting them is open work.
+- `EmergencyFreezeButton` still logs its intent and holds a `TODO` for the freeze endpoint; it calls
+  no API yet.
+- Three Stitch exports (`dashboard-superadmin-desktop.html`, `stitch-inicio-desktop.html`,
+  `stitch-inicio-mobile.html`) sit untracked at the repo root; they are design references, not source.
