@@ -1,7 +1,7 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RolesGuard } from './roles.guard';
-import { ACCESS_ROLES_KEY, type AccessRole } from '../decorators/roles.decorator';
+import { ACCESS_ROLES_KEY, Roles, type AccessRole } from '../decorators/roles.decorator';
 
 interface FakeRequest {
   user?: { id?: string; role?: string };
@@ -13,6 +13,18 @@ function contextFor(user?: FakeRequest['user']): ExecutionContext {
     getHandler: () => undefined,
     getClass: () => undefined,
   } as unknown as ExecutionContext;
+}
+
+/** Ruta real: el decorador escribe la metadata y un Reflector real la lee. */
+@Roles('SUPERADMIN', 'OWNER')
+class DecoratedRoute {
+  static handler() {}
+}
+
+function prismaWithMembership(membership: { id: string } | null) {
+  return {
+    merchantStaff: { findFirst: async () => membership },
+  };
 }
 
 function guardFor(options: {
@@ -84,12 +96,61 @@ describe('RolesGuard', () => {
     expect(findFirst).not.toHaveBeenCalled();
   });
 
-  it('ignores an unknown role name instead of admitting it', async () => {
+  it('reads the declared roles through a real Reflector, not a stub', async () => {
+    // Sin stub: si el guard leyera otra clave de metadata, este test falla.
+    const guard = new RolesGuard(
+      new Reflector(),
+      prismaWithMembership(null) as never,
+    );
+    const contextWithRoute = {
+      switchToHttp: () => ({
+        getRequest: <T>() => ({ user: { id: 'u1', role: 'SUPERADMIN' } }) as T,
+      }),
+      getHandler: () => DecoratedRoute.handler,
+      getClass: () => DecoratedRoute,
+    } as unknown as ExecutionContext;
+
+    await expect(guard.canActivate(contextWithRoute)).resolves.toBe(true);
+  });
+
+  it('rejects a plain USER through the real decorator metadata', async () => {
+    const guard = new RolesGuard(
+      new Reflector(),
+      prismaWithMembership(null) as never,
+    );
+    const contextWithRoute = {
+      switchToHttp: () => ({
+        getRequest: <T>() => ({ user: { id: 'u2', role: 'USER' } }) as T,
+      }),
+      getHandler: () => DecoratedRoute.handler,
+      getClass: () => DecoratedRoute,
+    } as unknown as ExecutionContext;
+
+    await expect(guard.canActivate(contextWithRoute)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it('does not treat a SUPERADMIN as a blank cheque for merchant-only routes', async () => {
     const { guard } = guardFor({ required: ['MANAGER'] });
+
+    await expect(
+      guard.canActivate(contextFor({ id: 'u5', role: 'SUPERADMIN' })),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('rejects a member of the wrong merchant role', async () => {
+    const { guard, findFirst } = guardFor({
+      required: ['OWNER'],
+      membership: null,
+    });
 
     await expect(
       guard.canActivate(contextFor({ id: 'u4', role: 'USER' })),
     ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 'u4', role: { in: ['OWNER'] } } }),
+    );
   });
 
   it('reads the declared roles from the metadata key', () => {

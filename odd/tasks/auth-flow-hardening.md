@@ -33,7 +33,7 @@ T6: Verificación — suites backend y frontend, seed real, smoke de login SUPER
 
 ### Known gaps (not implemented)
 
-- No existe panel admin ni endpoints con `@Roles(...)`: la autorización por rol se escribió en Fase 0 (`RolesGuard`, `MerchantGuard`), la migración a Better Auth (`7f4f431`) la borró junto al stack viejo y se reconstruyó `RolesGuard` en `feat(auth)` (2026-11-15). `MerchantGuard` con la jerarquía `OWNER > MANAGER > STAFF` quedó sin restaurar: si un endpoint futuro necesita esa jerarquía, el original vive en `7f4f431^`.
+- No existe panel admin ni endpoints de datos administrativos: `GET /api/v1/panel-access` es la única ruta con `@Roles(...)` (`SUPERADMIN`, `OWNER`) y el resto del panel todavía no llama a la API. La autorización por rol se escribió en Fase 0 (`RolesGuard`, `MerchantGuard`), la migración a Better Auth (`7f4f431`) la borró junto al stack viejo y se reconstruyó `RolesGuard` en `feat(auth)` (2026-11-15). `MerchantGuard` con la jerarquía `OWNER > MANAGER > STAFF` quedó sin restaurar: si un endpoint futuro necesita esa jerarquía, el original vive en `7f4f431^`.
 - `DashboardNav` enlaza a `/explore`, `/matcher`, `/check-in` y `/profile/duo`, rutas que todavía no existen.
 - `specialty` se elige en el registro pero el backend no lo persiste.
 
