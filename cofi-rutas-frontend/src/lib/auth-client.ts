@@ -4,10 +4,24 @@ import { createAuthClient } from "better-auth/react";
  * Better Auth Client Configuration
  *
  * Points to the backend Better Auth handler at /api/v1/auth/*
- * The baseURL should be the backend URL (not including /api/v1)
+ * The baseURL must be the full auth base path, not just the API root.
+ *
+ * - Client-side (browser): uses NEXT_PUBLIC_API_URL (default: http://localhost:3001/api/v1)
+ * - Server-side (middleware): uses INTERNAL_API_URL (default: http://backend:3001/api/v1)
  */
+const getClientBaseURL = () => {
+  // Client-side: use public URL (browser-accessible)
+  if (typeof window !== "undefined") {
+    return (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1").replace(/\/+$/, "");
+  }
+  // Server-side: use internal Docker URL
+  return (process.env.INTERNAL_API_URL || "http://backend:3001/api/v1").replace(/\/+$/, "");
+};
+
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001",
+  // Better Auth appends the endpoint path directly to this URL, so it must be
+  // the full auth base path, not just the API root.
+  baseURL: `${getClientBaseURL()}/auth`,
   // credentials: "include" is default for browser
 });
 
@@ -21,6 +35,10 @@ export const {
   useSession,
   getSession,
   changePassword,
+  // Account linking: `linkSocial` starts the OAuth flow for the signed-in
+  // user, `listAccounts` reports which providers are already linked.
+  linkSocial,
+  listAccounts,
   // resetPassword,
   // verifyEmail,
   // Organization plugin - use when plugin is enabled on server

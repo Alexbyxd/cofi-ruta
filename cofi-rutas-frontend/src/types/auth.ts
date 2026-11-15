@@ -3,14 +3,13 @@ export type AuthMode = 'login' | 'register';
 export type CoffeeSpecialty = 'Submarino' | 'V60 Altura' | 'Mocaccino';
 
 /**
- * AuthUser - Updated to match Better Auth user schema
- * Compatible with both legacy AuthService and Better Auth client
+ * AuthUser - display model shared by the app UI.
  */
 export interface AuthUser {
   id: string;
   email: string;
   name: string;           // Better Auth standard field (maps to fullName)
-  fullName?: string;      // Legacy compatibility / custom field (optional for Better Auth)
+  fullName?: string;      // Custom field (optional for Better Auth)
   avatarUrl?: string | null;
   image?: string | null;  // Better Auth standard field (maps to avatarUrl)
   role?: string;
@@ -21,30 +20,28 @@ export interface AuthUser {
   updatedAt?: string | Date;
 }
 
-export interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: AuthUser;
-}
+/**
+ * Step of the optional Google account-linking offer shown after a password
+ * login.
+ *
+ * - `ask`      the user can link Google to the current account
+ * - `linking`  the Google popup is open
+ * - `mismatch` the Google email differs from the account email; Google wins
+ * - `error`    linking or switching failed; the copy names what happened
+ */
+export type GoogleLinkPrompt =
+  | { kind: 'ask' }
+  | { kind: 'linking' }
+  | { kind: 'mismatch' }
+  | { kind: 'error'; title: string; message: string; actionLabel: string };
 
-export interface GoogleSignupDraft {
-  signupToken: string;
+export interface GoogleLinkPromptProps {
+  prompt: GoogleLinkPrompt;
   email: string;
-  fullName: string;
-  avatarUrl?: string | null;
-}
-
-export interface GoogleSignupPromptProps {
-  draft: GoogleSignupDraft;
   onConfirm: () => void;
-  onCancel: () => void;
-  loading?: boolean;
-}
-
-export interface AuthApiError {
-  message: string;
-  statusCode?: number;
-  error?: string;
+  onDecline: () => void;
+  onContinueWithGoogle: () => void;
+  onDismissError: () => void;
 }
 
 export interface AuthFeedbackState {
@@ -61,7 +58,7 @@ export interface AuthFormState {
   showPassword: boolean;
   loading: boolean;
   feedback: AuthFeedbackState | null;
-  googleSignup: GoogleSignupDraft | null;
+  linkPrompt: GoogleLinkPrompt | null;
 }
 
 export interface AuthHeaderProps {

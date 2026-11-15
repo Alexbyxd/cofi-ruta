@@ -1,37 +1,39 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { z } from 'zod';
 import { loginFormSchema, registerFormSchema } from '@/lib/auth-validation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth, GoogleEmailMismatchError } from '@/hooks/useAuth';
 import type {
   AuthMode,
   CoffeeSpecialty,
   AuthFormState,
-  GoogleSignupDraft,
+  GoogleLinkPrompt,
 } from '@/types/auth';
 
-const GOOGLE_SIGNUP_STORAGE_KEY = 'cofi_google_signup';
+/**
+ * Recordamos por email que el usuario dijo "ahora no" para no volver a
+ * ofrecerle vincular Google en cada login del mismo navegador.
+ */
+const LINK_DISMISSED_PREFIX = 'cofi_google_link_dismissed:';
 
-function readGoogleSignupDraft(): GoogleSignupDraft | null {
-  if (typeof window === 'undefined') return null;
+function isLinkDismissed(email: string): boolean {
+  if (typeof window === 'undefined') return false;
   try {
-    const raw = sessionStorage.getItem(GOOGLE_SIGNUP_STORAGE_KEY);
-    if (!raw) return null;
-    const draft = JSON.parse(raw) as GoogleSignupDraft;
-    return draft?.signupToken ? draft : null;
+    const key = `${LINK_DISMISSED_PREFIX}${email.trim().toLowerCase()}`;
+    return window.localStorage.getItem(key) === '1';
   } catch {
-    sessionStorage.removeItem(GOOGLE_SIGNUP_STORAGE_KEY);
-    return null;
+    return false;
   }
 }
 
-function clearGoogleSignupDraft(): void {
+function dismissLink(email: string): void {
   if (typeof window === 'undefined') return;
   try {
-    sessionStorage.removeItem(GOOGLE_SIGNUP_STORAGE_KEY);
+    const key = `${LINK_DISMISSED_PREFIX}${email.trim().toLowerCase()}`;
+    window.localStorage.setItem(key, '1');
   } catch {
-    // sessionStorage puede no estar disponible en modo privado.
+    // localStorage puede no estar disponible en modo privado.
   }
 }
 
@@ -40,14 +42,34 @@ export interface UseAuthFormOptions {
 }
 
 interface UseAuthReturn {
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, fullName: string, specialty?: string) => Promise<void>;
-  loginWithGoogle: (callbackURL?: string) => Promise<void>;
+  login: (
+    email: string,
+    password: string,
+    options?: { redirect?: boolean },
+  ) => Promise<void>;
+  register: (
+    email: string,
+    password: string,
+    fullName: string,
+    specialty?: string,
+  ) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+  isGoogleLinked: () => Promise<boolean>;
+  linkGoogle: () => Promise<'linked' | 'cancelled'>;
+  switchToGoogle: () => Promise<void>;
   isLoading: boolean;
 }
 
 export function useAuthForm(options: UseAuthFormOptions = {}) {
-  const { login, register, loginWithGoogle, isLoading: authLoading } = useAuth() as UseAuthReturn;
+  const {
+    login,
+    register,
+    loginWithGoogle,
+    isGoogleLinked,
+    linkGoogle,
+    switchToGoogle,
+    isLoading: authLoading,
+  } = useAuth() as UseAuthReturn;
 
   const [state, setState] = useState<AuthFormState>({
     mode: 'login',
@@ -58,15 +80,8 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
     showPassword: false,
     loading: false,
     feedback: null,
-    googleSignup: null,
+    linkPrompt: null,
   });
-
-  useEffect(() => {
-    const draft = readGoogleSignupDraft();
-    if (draft) {
-      setState((prev) => ({ ...prev, googleSignup: draft }));
-    }
-  }, []);
 
   const setMode = useCallback((mode: AuthMode) => {
     setState((prev) => ({ ...prev, mode, feedback: null }));
@@ -106,50 +121,121 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
     }));
   }, []);
 
-  const handleGoogleLogin = useCallback(() => {
-    loginWithGoogle();
-  }, [loginWithGoogle]);
-
-  const handleGoogleSignupConfirm = useCallback(async () => {
-    if (!state.googleSignup) return;
-
+  const handleGoogleLogin = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true, feedback: null }));
 
     try {
-      clearGoogleSignupDraft();
-      
-      setState((prev) => ({
-        ...prev,
-        googleSignup: null,
-        feedback: {
-          type: 'info',
-          message: 'Usá el botón "Continuar con Google" para iniciar sesión o registrarte.',
-        },
-      }));
+      await loginWithGoogle();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'No se pudo procesar el registro con Google';
-      clearGoogleSignupDraft();
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'No se pudo iniciar sesión con Google';
       setState((prev) => ({
         ...prev,
-        googleSignup: null,
         feedback: { type: 'error', message },
       }));
     } finally {
       setState((prev) => ({ ...prev, loading: false }));
     }
-  }, [state.googleSignup, options]);
+  }, [loginWithGoogle]);
 
-  const handleGoogleSignupCancel = useCallback(() => {
-    clearGoogleSignupDraft();
+  /** Navigates away from the auth page once the linking offer is resolved. */
+  const finishAuth = useCallback(() => {
+    options.onSuccess?.('login');
+  }, [options]);
+
+  /** The user accepts linking Google to the account they just signed into. */
+  const handleLinkGoogleConfirm = useCallback(async () => {
     setState((prev) => ({
       ...prev,
-      googleSignup: null,
-      feedback: {
-        type: 'info',
-        message: 'No creamos ninguna cuenta. Podés registrarte con tu correo cuando quieras.',
-      },
+      loading: true,
+      feedback: null,
+      linkPrompt: { kind: 'linking' } satisfies GoogleLinkPrompt,
     }));
-  }, []);
+
+    try {
+      const result = await linkGoogle();
+
+      if (result === 'cancelled') {
+        // Cerrar el popup es una decisión, no un error.
+        dismissLink(state.email);
+        setState((prev) => ({ ...prev, linkPrompt: null }));
+        finishAuth();
+        return;
+      }
+
+      setState((prev) => ({ ...prev, linkPrompt: null }));
+      finishAuth();
+    } catch (err: unknown) {
+      if (err instanceof GoogleEmailMismatchError) {
+        setState((prev) => ({
+          ...prev,
+          linkPrompt: { kind: 'mismatch' } satisfies GoogleLinkPrompt,
+        }));
+        return;
+      }
+      const message =
+        err instanceof Error ? err.message : 'No se pudo vincular Google';
+      setState((prev) => ({
+        ...prev,
+        linkPrompt: {
+          kind: 'error',
+          title: 'No se pudo vincular Google',
+          message,
+          actionLabel: 'Continuar al dashboard',
+        } satisfies GoogleLinkPrompt,
+      }));
+    } finally {
+      setState((prev) => ({ ...prev, loading: false }));
+    }
+  }, [linkGoogle, finishAuth, state.email]);
+
+  /** The user declines for now; we stop asking for this email. */
+  const handleLinkGoogleDecline = useCallback(() => {
+    dismissLink(state.email);
+    setState((prev) => ({ ...prev, linkPrompt: null }));
+    finishAuth();
+  }, [state.email, finishAuth]);
+
+  /**
+   * The Google email differs from the account email. Accounts are never
+   * merged, so Google wins: close the current session and sign in with Google.
+   */
+  const handleContinueWithGoogle = useCallback(async () => {
+    setState((prev) => ({
+      ...prev,
+      loading: true,
+      feedback: null,
+      linkPrompt: { kind: 'linking' } satisfies GoogleLinkPrompt,
+    }));
+
+    try {
+      await switchToGoogle();
+      setState((prev) => ({ ...prev, linkPrompt: null }));
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'No se pudo continuar con Google';
+      setState((prev) => ({
+        ...prev,
+        linkPrompt: {
+          kind: 'error',
+          title: 'No se pudo continuar con Google',
+          message,
+          actionLabel: 'Continuar al dashboard',
+        } satisfies GoogleLinkPrompt,
+      }));
+    } finally {
+      setState((prev) => ({ ...prev, loading: false }));
+    }
+  }, [switchToGoogle]);
+
+  const handleLinkGoogleDismissError = useCallback(() => {
+    setState((prev) => ({ ...prev, linkPrompt: null }));
+    finishAuth();
+  }, [finishAuth]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -171,7 +257,8 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
         }
       } catch (err: unknown) {
         if (err instanceof z.ZodError) {
-          const firstError = err.issues[0]?.message || 'Verifica los campos ingresados';
+          const firstError =
+            err.issues[0]?.message || 'Verifica los campos ingresados';
           setState((prev) => ({
             ...prev,
             feedback: { type: 'error', message: firstError },
@@ -184,25 +271,47 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
 
       try {
         if (state.mode === 'register') {
-          await register(state.email, state.password, state.fullName, state.specialty);
-          
+          await register(
+            state.email,
+            state.password,
+            state.fullName,
+            state.specialty,
+          );
+
           const successMessage = `¡Cuenta CofiDúo creada! Sellando tu primer pasaporte en Oruro para ${state.fullName}...`;
           setState((prev) => ({
             ...prev,
             feedback: { type: 'success', message: successMessage },
           }));
-        } else {
-          await login(state.email, state.password);
-          
-          setState((prev) => ({
-            ...prev,
-            feedback: { type: 'success', message: '¡Hola de nuevo! Extrayendo espresso...' },
-          }));
+
+          options.onSuccess?.(state.mode);
+          return;
+        }
+
+        // Password login keeps the user here so the optional Google linking
+        // offer can run with an active session.
+        await login(state.email, state.password, { redirect: false });
+
+        setState((prev) => ({
+          ...prev,
+          feedback: {
+            type: 'success',
+            message: '¡Hola de nuevo! Extrayendo espresso...',
+          },
+        }));
+
+        const alreadyLinked = await isGoogleLinked();
+        if (!alreadyLinked && !isLinkDismissed(state.email)) {
+          setState((prev) => ({ ...prev, linkPrompt: { kind: 'ask' } }));
+          return;
         }
 
         options.onSuccess?.(state.mode);
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Error de conexión con el servidor de CofiRutas';
+        const message =
+          err instanceof Error
+            ? err.message
+            : 'Error de conexión con el servidor de CofiRutas';
         setState((prev) => ({
           ...prev,
           feedback: { type: 'error', message },
@@ -211,7 +320,17 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
         setState((prev) => ({ ...prev, loading: false }));
       }
     },
-    [state.mode, state.email, state.password, state.fullName, state.specialty, login, register, options],
+    [
+      state.mode,
+      state.email,
+      state.password,
+      state.fullName,
+      state.specialty,
+      login,
+      register,
+      isGoogleLinked,
+      options,
+    ],
   );
 
   return {
@@ -226,8 +345,10 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
     handleSubmit,
     handleForgotPassword,
     handleGoogleLogin,
-    handleGoogleSignupConfirm,
-    handleGoogleSignupCancel,
+    handleLinkGoogleConfirm,
+    handleLinkGoogleDecline,
+    handleContinueWithGoogle,
+    handleLinkGoogleDismissError,
     isAuthLoading: authLoading,
   };
 }

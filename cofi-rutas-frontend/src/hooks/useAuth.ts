@@ -1,9 +1,56 @@
 "use client";
 
-import { useSession, signIn, signUp, signOut, getSession } from "@/lib/auth-client";
+import {
+  useSession,
+  signIn,
+  signUp,
+  signOut,
+  getSession,
+  linkSocial,
+  listAccounts,
+} from "@/lib/auth-client";
+import {
+  openGooglePopup,
+  waitForGooglePopup,
+} from "@/lib/google-oauth-popup";
 import { useRouter, usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { BetterAuthUser, BetterAuthSession } from "@/lib/auth-client";
+
+/**
+ * Thrown when the Google account chosen during linking has a different email
+ * than the CofiRutas account. The accounts are never merged in that case.
+ */
+export class GoogleEmailMismatchError extends Error {
+  constructor() {
+    super(
+      "La cuenta de Google tiene un email distinto al de tu cuenta CofiRutas",
+    );
+    this.name = "GoogleEmailMismatchError";
+  }
+}
+
+/**
+ * Turns a Better Auth OAuth callback error code into a message the person can
+ * act on. The raw codes are English machine values.
+ */
+function describeGoogleAuthError(
+  code: string | undefined,
+  fallback: string | undefined,
+): string {
+  switch (code) {
+    case "account_not_linked":
+      return "Ese email ya tiene una cuenta con contraseña. Iniciá sesión con tu contraseña y vas a poder vincular Google.";
+    case "email_does_not_match":
+      return "El email de Google no coincide con el de tu cuenta CofiRutas.";
+    case "account_already_linked_to_different_user":
+      return "Esa cuenta de Google ya está vinculada a otro usuario.";
+    case "access_denied":
+      return "Cancelaste el acceso desde Google.";
+    default:
+      return fallback || "No se pudo completar la autenticación con Google";
+  }
+}
 
 /**
  * useAuth Hook - Compatibility wrapper for existing AuthService interface
@@ -26,20 +73,29 @@ export function useAuth() {
 
   /**
    * Login with email and password
+   *
+   * `redirect: false` keeps the user on the current page so the caller can run
+   * the optional Google linking offer before navigating.
    */
   const login = useCallback(
-    async (email: string, password: string) => {
+    async (
+      email: string,
+      password: string,
+      options?: { redirect?: boolean },
+    ) => {
       const { error } = await signIn.email({ email, password });
       if (error) {
         throw new Error(error.message || "Error al iniciar sesión");
       }
       await refetch();
-      const redirectTo = (pathname === "/login" || pathname === "/register")
-        ? "/dashboard"
-        : pathname;
+      if (options?.redirect === false) return;
+      const redirectTo =
+        pathname === "/login" || pathname === "/register"
+          ? "/dashboard"
+          : pathname;
       router.push(redirectTo);
     },
-    [refetch, router, pathname]
+    [refetch, router, pathname],
   );
 
   /**
@@ -50,7 +106,7 @@ export function useAuth() {
       email: string,
       password: string,
       fullName: string,
-      specialty?: string
+      specialty?: string,
     ) => {
       const { error } = await signUp.email({
         email,
@@ -65,96 +121,167 @@ export function useAuth() {
       await refetch();
       router.push("/onboarding"); // or dashboard
     },
-    [refetch, router]
+    [refetch, router],
   );
 
   /**
    * Login with Google OAuth (popup mode)
    */
-  const loginWithGoogle = useCallback(
-    async (callbackURL = "/dashboard") => {
-      // Usar URL completa del frontend para el callback OAuth
-      // El backend (puerto 3001) redirigirá aquí tras procesar Google OAuth
-      const frontendOrigin = window.location.origin;
-      const oauthCallbackURL = `${frontendOrigin}/auth/callback`;
+  const loginWithGoogle = useCallback(async () => {
+    const frontendOrigin = window.location.origin;
+    const callbackURL = `${frontendOrigin}/auth/callback`;
+    const openedAt = Date.now();
+    // A session that already existed must not be mistaken for this login, so
+    // success is decided by the session ID changing, never by the wall clock.
+    const previousSessionId = session?.session?.id ?? null;
 
-      const { data } = await signIn.social({
-        provider: "google",
-        callbackURL: oauthCallbackURL,
-        disableRedirect: true,
-      });
+    const { data, error } = await signIn.social({
+      provider: "google",
+      callbackURL,
+      // Send OAuth failures (including `account_not_linked`) back to the app
+      // instead of leaving the popup on the backend error page.
+      errorCallbackURL: callbackURL,
+      disableRedirect: true,
+    });
 
-      if (!data?.url) {
-        throw new Error("No se pudo obtener la URL de autenticación de Google");
-      }
-
-      // Abrir popup centrado
-      const width = 500;
-      const height = 600;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-
-      const popup = window.open(
-        data.url,
-        "google-auth",
-        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+    if (error) {
+      throw new Error(
+        error.message || "No se pudo iniciar sesión con Google",
       );
+    }
+    if (!data?.url) {
+      throw new Error("No se pudo obtener la URL de autenticación de Google");
+    }
 
-      // Verificación robusta de popup bloqueado
-      if (!popup || popup.closed || typeof popup.closed === "undefined") {
-        throw new Error("El navegador bloqueó el popup. Permití popups para este sitio.");
+    const popup = openGooglePopup(data.url);
+    if (!popup || popup.closed || typeof popup.closed === "undefined") {
+      throw new Error(
+        "El navegador bloqueó el popup. Permití popups para este sitio.",
+      );
+    }
+
+    const outcome = await waitForGooglePopup(popup, openedAt);
+
+    if (outcome.kind === "result" && outcome.result.type === "GOOGLE_AUTH_ERROR") {
+      if (!popup.closed) popup.close();
+      throw new Error(
+        describeGoogleAuthError(outcome.result.code, outcome.result.message),
+      );
+    }
+
+    // The session is the source of truth. Only a session different from the
+    // one that existed before this attempt counts, so a pre-existing session
+    // cannot fake a successful Google login.
+    const { data: sessionData } = await getSession();
+    const isFreshSession =
+      !!sessionData?.session && sessionData.session.id !== previousSessionId;
+
+    if (sessionData?.session && isFreshSession) {
+      if (!popup.closed) popup.close();
+      await refetch();
+      const redirectTo =
+        pathname === "/login" || pathname === "/register"
+          ? "/dashboard"
+          : pathname;
+      router.push(redirectTo);
+      return;
+    }
+
+    if (!popup.closed) popup.close();
+
+    if (outcome.kind === "timeout") {
+      throw new Error("Tiempo de espera agotado para autenticación con Google");
+    }
+    throw new Error(
+      "No se completó la autenticación con Google. Intentá de nuevo.",
+    );
+  }, [refetch, router, pathname, session?.session?.id]);
+
+  /**
+   * Whether the signed-in user already has Google linked.
+   */
+  const isGoogleLinked = useCallback(async () => {
+    try {
+      const { data, error } = await listAccounts();
+      if (error || !data) return false;
+      return data.some((account) => account.providerId === "google");
+    } catch {
+      // A transient failure must not block the login it follows.
+      return false;
+    }
+  }, []);
+
+  /**
+   * Links Google to the signed-in account through a popup.
+   *
+   * Returns "cancelled" when the user simply closed the popup; throws
+   * `GoogleEmailMismatchError` when the chosen Google email differs from the
+   * account email.
+   */
+  const linkGoogle = useCallback(async (): Promise<"linked" | "cancelled"> => {
+    const frontendOrigin = window.location.origin;
+    const callbackURL = `${frontendOrigin}/auth/callback`;
+    const openedAt = Date.now();
+
+    const { data, error } = await linkSocial({
+      provider: "google",
+      callbackURL,
+      errorCallbackURL: callbackURL,
+      disableRedirect: true,
+    });
+
+    if (error) {
+      throw new Error(error.message || "No se pudo vincular Google");
+    }
+    if (!data?.url) {
+      throw new Error("No se pudo obtener la URL de vinculación de Google");
+    }
+
+    const popup = openGooglePopup(data.url);
+    if (!popup || popup.closed || typeof popup.closed === "undefined") {
+      throw new Error(
+        "El navegador bloqueó el popup. Permití popups para este sitio.",
+      );
+    }
+
+    const outcome = await waitForGooglePopup(popup, openedAt);
+
+    if (
+      outcome.kind === "result" &&
+      outcome.result.type === "GOOGLE_AUTH_ERROR"
+    ) {
+      if (!popup.closed) popup.close();
+      if (outcome.result.code === "email_does_not_match") {
+        throw new GoogleEmailMismatchError();
       }
+      throw new Error(
+        describeGoogleAuthError(outcome.result.code, outcome.result.message),
+      );
+    }
 
-      // Esperar a que el popup se cierre o complete la autenticación
-      return new Promise<void>((resolve, reject) => {
-        let settled = false;
-        const cleanup = () => {
-          clearInterval(checkClosed);
-          window.removeEventListener("message", handleMessage);
-        };
-        const settle = (fn: () => void) => {
-          if (!settled) {
-            settled = true;
-            cleanup();
-            fn();
-          }
-        };
+    if (outcome.kind === "timeout") {
+      throw new Error("Tiempo de espera agotado para vincular Google");
+    }
 
-        const checkClosed = setInterval(() => {
-          if (popup.closed) {
-            settle(() => refetch().then(() => resolve()).catch(reject));
-          }
-        }, 500);
+    // Verify against the server instead of trusting the popup handshake.
+    const linked = await isGoogleLinked();
+    if (!linked) return "cancelled";
 
-        // Timeout global: 5 min
-        const globalTimeout = setTimeout(() => {
-          if (!popup.closed) popup.close();
-          settle(() => reject(new Error("Tiempo de espera agotado para autenticación con Google")));
-        }, 5 * 60 * 1000);
+    await refetch();
+    return "linked";
+  }, [isGoogleLinked, refetch]);
 
-        const handleMessage = (event: MessageEvent) => {
-          if (event.origin !== window.location.origin) return;
-          
-          if (event.data?.type === "GOOGLE_AUTH_SUCCESS") {
-            settle(() => {
-              popup.close();
-              clearTimeout(globalTimeout);
-              refetch().then(() => resolve()).catch(reject);
-            });
-          } else if (event.data?.type === "GOOGLE_AUTH_ERROR") {
-            settle(() => {
-              popup.close();
-              clearTimeout(globalTimeout);
-              reject(new Error(event.data.message || "Error en autenticación con Google"));
-            });
-          }
-        };
-
-        window.addEventListener("message", handleMessage);
-      });
-    },
-    [refetch]
-  );
+  /**
+   * Closes the current session and signs in with Google instead.
+   *
+   * Used when the linking attempt was rejected because the Google email
+   * differs: the Google identity wins, so the user continues as that account.
+   */
+  const switchToGoogle = useCallback(async () => {
+    await signOut();
+    await refetch();
+    await loginWithGoogle();
+  }, [refetch, loginWithGoogle]);
 
   /**
    * Logout - clears session on server and client
@@ -188,6 +315,9 @@ export function useAuth() {
     login,
     register,
     loginWithGoogle,
+    isGoogleLinked,
+    linkGoogle,
+    switchToGoogle,
     logout,
     getAccessToken,
     refreshSession,

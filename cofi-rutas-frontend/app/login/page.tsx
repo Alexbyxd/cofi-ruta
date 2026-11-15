@@ -8,7 +8,7 @@ import { useAuthForm } from '@/hooks/useAuthForm';
 import {
   AuthHeader,
   GoogleAuthButton,
-  GoogleSignupPrompt,
+  GoogleLinkPrompt,
   BrutalistDivider,
   AuthModeTabs,
   AuthFeedback,
@@ -35,12 +35,14 @@ export default function LoginPage() {
     setSpecialty,
     toggleShowPassword,
     dismissFeedback,
-    googleSignup,
+    linkPrompt,
     handleSubmit,
     handleForgotPassword,
     handleGoogleLogin,
-    handleGoogleSignupConfirm,
-    handleGoogleSignupCancel,
+    handleLinkGoogleConfirm,
+    handleLinkGoogleDecline,
+    handleContinueWithGoogle,
+    handleLinkGoogleDismissError,
   } = useAuthForm({
     onSuccess: () => router.replace('/dashboard'),
   });
@@ -72,13 +74,15 @@ export default function LoginPage() {
 
         {/* Auth Card (desktop card surface; on mobile its children flow inline) */}
         <div className="contents lg:flex lg:flex-col lg:gap-5 lg:col-start-2 lg:row-start-2 lg:bg-surface-card lg:border-[3px] lg:border-espresso-ink lg:rounded-lg lg:p-8 lg:shadow-[8px_8px_0px_0px_#1A0F0A]">
-          {/* Google signup consent (only when Google returned an unknown account) */}
-          {googleSignup && (
-            <GoogleSignupPrompt
-              draft={googleSignup}
-              onConfirm={handleGoogleSignupConfirm}
-              onCancel={handleGoogleSignupCancel}
-              loading={loading}
+          {/* Google account linking offer (after an email/password login) */}
+          {linkPrompt && (
+            <GoogleLinkPrompt
+              prompt={linkPrompt}
+              email={email}
+              onConfirm={handleLinkGoogleConfirm}
+              onDecline={handleLinkGoogleDecline}
+              onContinueWithGoogle={handleContinueWithGoogle}
+              onDismissError={handleLinkGoogleDismissError}
             />
           )}
 

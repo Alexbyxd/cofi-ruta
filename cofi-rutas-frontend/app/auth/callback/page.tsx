@@ -1,90 +1,63 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect } from 'react';
+import { OAUTH_RESULT_STORAGE_KEY } from '@/lib/google-oauth-popup';
 
 /**
  * Página de callback para autenticación OAuth (popup mode)
  *
  * Better Auth redirige aquí tras completar el flujo OAuth en el popup.
- * Esta página notifica a la ventana principal (opener) y se cierra.
+ * El resultado se entrega por dos canales porque `window.opener` no siempre
+ * sobrevive: el COOP de Google puede cortarlo.
+ *
+ *   1. `postMessage` a la ventana que abrió el popup (rápido).
+ *   2. `localStorage`, que ambas ventanas comparten por ser del mismo origen
+ *      (robusto aunque el opener se haya perdido).
+ *
+ * No usa `useSearchParams` a propósito: con `cacheComponents` ese hook exige
+ * un boundary de <Suspense> y rompía la página (y con ella el postMessage).
+ * Los parámetros se leen de `window.location` dentro del efecto, que ya es
+ * client-only.
  */
 export default function AuthCallbackPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
   useEffect(() => {
-    // Notificar a la ventana principal que la autenticación terminó
-    if (window.opener && !window.opener.closed) {
-      const error = searchParams.get("error");
-      const errorDescription = searchParams.get("error_description");
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('error');
+    const message = params.get('error_description') || error || undefined;
 
-      if (error) {
-        window.opener.postMessage(
-          {
-            type: "GOOGLE_AUTH_ERROR",
-            message: errorDescription || error,
-          },
-          window.location.origin
-        );
-      } else {
-        window.opener.postMessage(
-          { type: "GOOGLE_AUTH_SUCCESS" },
-          window.location.origin
-        );
-      }
+    const result = error
+      ? { type: 'GOOGLE_AUTH_ERROR', code: error, message }
+      : { type: 'GOOGLE_AUTH_SUCCESS' };
+
+    try {
+      window.localStorage.setItem(
+        OAUTH_RESULT_STORAGE_KEY,
+        JSON.stringify({ ...result, at: Date.now() })
+      );
+    } catch {
+      // localStorage puede no estar disponible; queda el postMessage.
     }
 
-    // Cerrar el popup después de un breve delay para permitir que el mensaje se procese
+    const opener = window.opener as Window | null;
+    if (opener && !opener.closed) {
+      opener.postMessage(result, window.location.origin);
+    }
+
+    // Cerrar el popup después de un breve delay para permitir que el mensaje
+    // se procese y que el opener lea localStorage.
     setTimeout(() => {
       window.close();
-    }, 100);
-  }, [searchParams]);
-
-  // Si no hay opener (usuario llegó directo a esta URL), redirigir al dashboard
-  useEffect(() => {
-    if (!window.opener || window.opener.closed) {
-      router.replace("/dashboard");
-    }
-  }, [router]);
+    }, 150);
+  }, []);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        minHeight: "100vh",
-        fontFamily: "system-ui, sans-serif",
-      }}
-    >
-      <div style={{ textAlign: "center" }}>
-        <div
-          style={{
-            width: "40px",
-            height: "40px",
-            border: "3px solid #f3f3f3",
-            borderTop: "3px solid #34A853",
-            borderRadius: "50%",
-            animation: "spin 1s linear infinite",
-            margin: "0 auto 16px",
-          }}
-        />
-        <style jsx>{`
-          @keyframes spin {
-            0% {
-              transform: rotate(0deg);
-            }
-            100% {
-              transform: rotate(360deg);
-            }
-          }
-        `}</style>
-        <p>Completando autenticación...</p>
-        <p style={{ fontSize: "12px", color: "#666", marginTop: "8px" }}>
-          Esta ventana se cerrará automáticamente.
-        </p>
-      </div>
-    </div>
+    <main className="min-h-screen bg-surface flex flex-col items-center justify-center gap-3 px-6 text-espresso-ink">
+      <p className="font-[family-name:var(--font-space-grotesk)] text-sm font-black uppercase tracking-wide">
+        Completando autenticación…
+      </p>
+      <p className="font-[family-name:var(--font-dm-sans)] text-xs text-espresso-ink/70">
+        Si esta ventana no se cierra sola, podés cerrarla.
+      </p>
+    </main>
   );
 }
