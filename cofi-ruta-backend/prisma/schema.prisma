@@ -104,19 +104,22 @@ enum MatchSessionStatus {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Identidad y acceso
+// Identidad y acceso (Compatible con Better Auth)
 // ─────────────────────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(uuid(7))
-  email        String   @unique
-  passwordHash String?
-  fullName     String
-  avatarUrl    String?
-  role         Role     @default(USER)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+  id            String    @id @default(uuid(7))
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  // Better Auth `name` / `image` are mapped to these columns in auth config
+  // (user.fields) so the app keeps a single source of truth for display data.
+  fullName      String    @default("")
+  avatarUrl     String?
+  role          Role      @default(USER)
+  isActive      Boolean   @default(true)
+  specialty     String?   // CoffeeSpecialty: Submarino | V60 Altura | Mocaccino
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
 
   accounts              Account[]
   sessions              Session[]
@@ -138,32 +141,53 @@ model User {
 }
 
 model Account {
-  id                String   @id @default(uuid(7))
-  userId            String
-  provider          String
-  providerAccountId String
-  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  id                    String    @id @default(uuid(7))
+  userId                String
+  providerId            String
+  accountId             String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(3)
+  scope                 String?
+  // Better Auth stores credential passwords here (providerId = "credential").
+  password              String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([provider, providerAccountId])
+  @@unique([providerId, accountId])
   @@index([userId])
 }
 
 model Session {
-  id         String    @id @default(uuid(7))
-  userId     String
-  tokenHash  String    @unique
-  userAgent  String?
-  ipAddress  String?
-  expiresAt  DateTime  @db.Timestamptz(3)
-  revokedAt  DateTime? @db.Timestamptz(3)
-  lastUsedAt DateTime? @db.Timestamptz(3)
-  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  id        String   @id @default(uuid(7))
+  userId    String
+  token     String   @unique
+  expiresAt DateTime @db.Timestamptz(3)
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// Better Auth requiere este modelo para email verification
+model Verification {
+  id         String   @id @default(uuid(7))
+  identifier String   // email or phone
+  value      String   // verification code/token
+  expiresAt  DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([identifier, value])
+  @@index([expiresAt])
 }
 
 model MerchantStaff {
@@ -335,9 +359,6 @@ model CoupleLink {
   reviews       Review[]
   matchSessions MatchSession[]
 
-  // A user may have only one ACTIVE link (enforced by partial unique indexes in
-  // the baseline migration). Archived links keep history, so the same pair can
-  // have multiple rows and create a new link later.
   @@index([userAId])
   @@index([userBId])
 }

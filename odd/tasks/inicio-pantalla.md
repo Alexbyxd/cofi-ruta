@@ -55,3 +55,37 @@ S7: Tipado estricto compartido para CoffeeShop y Product en el frontend.
 ## Log
 
 L1: Usuario pide pantalla de inicio llamada "Inicio", componentes y tipado, backend sincronizado con UI, usando Engram y CodeGraph.
+
+## Audit vs the Stitch screen (2026-11-15)
+
+Reference: Stitch screen `75fc9a3f1d214c97acea1155fe6c1aa7` — "Inicio — CofiRutas Desktop Dashboard"
+(2560×5804), fetched with `stitch serve -p 17305238942107884719`. The downloaded HTML was deleted
+afterwards; Stitch exports are never kept in the repo.
+
+Design modules, in order: hero "¿Qué merendamos hoy en pareja?" · Acciones Rápidas · Antojo del Día
+en Oruro · Cafeterías en Oruro · Pasaporte Cafetero · Comunidad en Vivo · Reto Dúo de la Semana.
+
+| Design module | Implementation | Status |
+|---|---|---|
+| Hero | `shared/HeroSection.tsx` | present, copy differs |
+| Acciones Rápidas | `shared/QuickActions.tsx` | match |
+| Antojo del Día | `shared/AntojoDelDia.tsx` | match |
+| Cafeterías en Oruro | `shared/CafeFeed.tsx` | match |
+| Pasaporte Cafetero | `shared/PasaporteSellos.tsx` | match |
+| Comunidad en Vivo | `shared/ComunidadEnVivo.tsx` | match |
+| Reto Dúo de la Semana | `shared/DuoChallenge.tsx` | desktop only — **missing on mobile** |
+| Hashtag chips | `types/cafes.ts` `DEFAULT_CAFE_FILTER_CHIPS` | 4 of 6, one label differs |
+
+Gaps:
+
+1. `DuoChallenge` (Reto Dúo de la Semana) renders in `DesktopLayout.tsx:160` but the mobile branch of
+   `app/inicio/page.tsx` never imports it (0 references): the mobile Inicio has no weekly challenge.
+2. Hero copy diverges. The design asks "¿Qué merendamos hoy en pareja?"; the implementation greets by
+   name (`{greeting}, {duoNames[0]} & {duoNames[1]}! ☕` in `shared/HeroSection.tsx`). This may be
+   intentional; it needs a product decision, not a silent fix.
+3. Filter chips: the design has six (`#ParaElFrío`, `#FrappésYFríos`, `#AntojoDulce`, `#ParaEstudiar`,
+   `#ConCalefacción`, `#ReposteríaArtesanal`). `DEFAULT_CAFE_FILTER_CHIPS` has four and renames
+   `#FrappésYFríos` to `#JugosYFrappés`; `#ConCalefacción` and `#ReposteríaArtesanal` are missing.
+
+Not audited: pixel-level spacing, typography scale, colours and icon set (the design uses Material
+Symbols, the app uses lucide-react). No browser smoke of `/inicio` was run.

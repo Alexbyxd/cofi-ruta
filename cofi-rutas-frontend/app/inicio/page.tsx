@@ -75,7 +75,6 @@ export default function InicioPage() {
 
   // Detect desktop breakpoint on mount and resize
   useEffect(() => {
-    setMounted(true);
     const checkDesktop = () => {
       const desktop = window.innerWidth >= 1024; // lg breakpoint
       setIsDesktop(desktop);
@@ -83,6 +82,11 @@ export default function InicioPage() {
     checkDesktop();
     window.addEventListener('resize', checkDesktop);
     return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
+
+  // Mark as mounted after first render to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true);
   }, []);
 
   // Don't render until mounted to avoid hydration mismatch

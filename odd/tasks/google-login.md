@@ -24,3 +24,4 @@ L1: Usuario quiere que el botón de Google se conecte por Passport OAuth2
 L2: Arquitectura elegida: Passport OAuth2 (no Google Identity Services ID token). Backend expone GET /auth/google y callback que guarda tokens en sessionStorage y redirige al frontend a /auth/callback, que los lee y guarda en localStorage.
 L3: Commit 4e864ab feat(auth): login con Google vía Passport OAuth2 — 8 archivos, 304 inserciones.
 L4: Todas las suites pasan: backend jest 36 tests, frontend vitest 14 tests, next build y nest build limpios.
+L5: S3 quedó superseded por `odd/tasks/auth-flow-hardening.md` (S6): `googleLogin` ya no crea usuarios automáticamente; un email verificado sin cuenta devuelve `GOOGLE_ACCOUNT_NOT_REGISTERED` y requiere `POST /auth/google/register` con consentimiento explícito.
