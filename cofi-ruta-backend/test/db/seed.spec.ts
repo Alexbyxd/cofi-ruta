@@ -84,6 +84,36 @@ describe('Seed idempotente (Fase 0)', () => {
     }
   });
 
+  it('creates no SUPERADMIN with a built-in password when the env var is absent', async () => {
+    const previous = {
+      NODE_ENV: process.env.NODE_ENV,
+      SUPERADMIN_EMAIL: process.env.SUPERADMIN_EMAIL,
+      SUPERADMIN_PASSWORD: process.env.SUPERADMIN_PASSWORD,
+    };
+    process.env.NODE_ENV = 'development';
+    process.env.SUPERADMIN_EMAIL = 'admin-sin-password@cofi.test';
+    delete process.env.SUPERADMIN_PASSWORD;
+
+    try {
+      const summary = await seedDatabase(prisma);
+
+      expect(summary.superAdminEmail).toBeNull();
+      expect(
+        await prisma.user.count({
+          where: { email: 'admin-sin-password@cofi.test' },
+        }),
+      ).toBe(0);
+    } finally {
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
+  });
+
   it('creates an idempotent merchant OWNER whose panel access resolves', async () => {
     const previous = {
       OWNER_EMAIL: process.env.OWNER_EMAIL,
@@ -163,14 +193,14 @@ describe('Seed idempotente (Fase 0)', () => {
     }
   });
 
-  it('creates no owner at all outside development and test without a password', async () => {
+  it('creates no owner without OWNER_PASSWORD, even in development', async () => {
     const previous = {
       NODE_ENV: process.env.NODE_ENV,
       OWNER_EMAIL: process.env.OWNER_EMAIL,
       OWNER_PASSWORD: process.env.OWNER_PASSWORD,
       OWNER_CAFE_SLUG: process.env.OWNER_CAFE_SLUG,
     };
-    process.env.NODE_ENV = 'staging';
+    process.env.NODE_ENV = 'development';
     process.env.OWNER_EMAIL = 'dueno-staging@cofi.test';
     delete process.env.OWNER_PASSWORD;
     process.env.OWNER_CAFE_SLUG = 'perfecto-coffee-lounge';

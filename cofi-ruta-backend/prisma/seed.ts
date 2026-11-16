@@ -29,10 +29,8 @@ export interface SeedSummary {
 const CAFES_FILE = join(__dirname, 'seed-data', 'cafes.json');
 
 const DEFAULT_SUPERADMIN_EMAIL = 'superadmin@cofirutas.bo';
-const DEFAULT_DEV_SUPERADMIN_PASSWORD = 'CofiRutas2026!';
 
 const DEFAULT_OWNER_EMAIL = 'owner@cofirutas.bo';
-const DEFAULT_DEV_OWNER_PASSWORD = 'CofiRutas2026!';
 
 // Better Auth is configured with bcrypt cost 12 (see src/auth/better-auth/config.ts).
 const BCRYPT_ROUNDS = 12;
@@ -42,7 +40,8 @@ const BCRYPT_ROUNDS = 12;
  * flujos de administración. Es idempotente: reejecutar el seed no duplica.
  *
  * - `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` permiten configurarlo.
- * - En producción no se crea una contraseña conocida si no se configuró una.
+ * - Sin la contraseña configurada no se crea la credencial: no hay contraseña
+ *   por defecto en el código.
  */
 export async function seedSuperAdmin(
   prisma: PrismaClient,
@@ -51,12 +50,16 @@ export async function seedSuperAdmin(
     .toLowerCase()
     .trim();
 
-  const configuredPassword = process.env.SUPERADMIN_PASSWORD;
-  if (!configuredPassword && process.env.NODE_ENV === 'production') {
+  // Sin SUPERADMIN_PASSWORD no hay credencial que crear: una contraseña por
+  // defecto en el código es una credencial conocida para cualquiera que lea el
+  // repositorio, y `superadmin` es justo el usuario que administra todo.
+  const password = process.env.SUPERADMIN_PASSWORD;
+  if (!password) {
+    console.warn(
+      'seedSuperAdmin: omitido. Definí SUPERADMIN_PASSWORD para crear la credencial del superadmin.',
+    );
     return null;
   }
-
-  const password = configuredPassword ?? DEFAULT_DEV_SUPERADMIN_PASSWORD;
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
   const user = await prisma.user.upsert({
@@ -99,7 +102,8 @@ export async function seedSuperAdmin(
  *
  * - `OWNER_EMAIL` / `OWNER_PASSWORD` configuran la credencial.
  * - `OWNER_CAFE_SLUG` elige la cafetería; por defecto, la primera del seed.
- * - En producción no se crea una contraseña conocida si no se configuró una.
+ * - Sin la contraseña configurada no se crea la credencial: no hay contraseña
+ *   por defecto en el código.
  */
 export async function seedMerchantOwner(
   prisma: PrismaClient,
@@ -112,16 +116,17 @@ export async function seedMerchantOwner(
   // Un OWNER_PASSWORD vacío cuenta como ausente, pero el valor configurado se
   // hashea tal cual: recortarlo cambiaría la contraseña del usuario.
   const rawOwnerPassword = process.env.OWNER_PASSWORD;
-  const configuredPassword =
+  // Sin OWNER_PASSWORD no hay credencial que crear. No hay contraseña por
+  // defecto: la que estaba en el código era una credencial conocida para
+  // cualquiera que leyera el repositorio, en cualquier entorno.
+  const password =
     rawOwnerPassword === undefined || rawOwnerPassword === ''
       ? undefined
       : rawOwnerPassword;
-  // La contraseña de desarrollo sólo se usa cuando el entorno la declara como
-  // tal: un despliegue con NODE_ENV sin definir o distinto de development/test
-  // no puede terminar con una credencial conocida.
-  const allowsDevCredentials =
-    process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
-  if (!configuredPassword && !allowsDevCredentials) {
+  if (!password) {
+    console.warn(
+      'seedMerchantOwner: omitido. Definí OWNER_PASSWORD para crear la credencial del dueño.',
+    );
     return null;
   }
 
@@ -140,7 +145,6 @@ export async function seedMerchantOwner(
   const email = (process.env.OWNER_EMAIL ?? DEFAULT_OWNER_EMAIL)
     .toLowerCase()
     .trim();
-  const password = configuredPassword ?? DEFAULT_DEV_OWNER_PASSWORD;
 
   // El rol de cuenta no se toca: un SUPERADMIN que también sea dueño no debe
   // perder su rol por correr el seed.
