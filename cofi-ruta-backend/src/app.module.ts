@@ -6,9 +6,17 @@ import { AuthModule } from './auth/auth.module';
 import { PairingModule } from './pairing/pairing.module';
 import { CafesModule } from './cafes/cafes.module';
 import { GroupsModule } from './groups/groups.module';
+import { MerchantsModule } from './merchants/merchants.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, PairingModule, GroupsModule, CafesModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    PairingModule,
+    GroupsModule,
+    CafesModule,
+    MerchantsModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
