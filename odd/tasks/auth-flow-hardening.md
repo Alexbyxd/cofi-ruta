@@ -4,7 +4,7 @@ Objetivo: verificar y cerrar el flujo de login (email/password y Google), agrega
 
 ## Specs
 
-S1: `prisma/seed.ts` crea de forma idempotente un usuario con `role = SUPERADMIN`, `isActive = true` y contraseña hasheada con bcrypt, usable para iniciar sesión. Email y contraseña configurables por `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD`; en desarrollo usa defaults documentados; en producción no crea credenciales conocidas si `SUPERADMIN_PASSWORD` no está definido.
+S1: `prisma/seed.ts` crea de forma idempotente un usuario con `role = SUPERADMIN`, `isActive = true` y contraseña hasheada con bcrypt, usable para iniciar sesión. Email y contraseña configurables por `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD`. Sin `SUPERADMIN_PASSWORD` no se crea la credencial en ningún entorno: no hay contraseña por defecto en el código (antes la había, y quedó expuesta en el repositorio).
 S2: El login con email/contraseña correctos guarda la sesión y redirige a `/dashboard`. Un email o contraseña incorrectos muestran el mensaje del backend (`Correo o contraseña incorrectos`).
 S3: Los errores de validación del backend (`{ statusCode, message, errors: [{ field, message }] }`) muestran el mensaje específico del primer campo, no el genérico "La validación falló".
 S4: La validación del cliente coincide con el backend: login exige contraseña no vacía; registro exige mínimo 8 caracteres.

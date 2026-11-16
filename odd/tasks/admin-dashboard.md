@@ -22,7 +22,7 @@ S7: `/admin` tiene guard real por rol: sin rol SUPERADMIN ni OWNER no se entra.
 
 S8: Hoy `/dashboard` redirige un SUPERADMIN a `/superadmin`, una ruta que no existe. Ese destino pasa a `/admin`.
 
-S9: El seed crea de forma idempotente un dueño de cafetería: usuario con rol de cuenta `USER` más `MerchantStaff.role = OWNER` sobre una cafetería existente. Configurable con `OWNER_EMAIL` / `OWNER_PASSWORD` / `OWNER_CAFE_SLUG`; en producción no crea una contraseña conocida si falta `OWNER_PASSWORD`. Sin esta fila, `/admin` no puede resolver a un dueño.
+S9: El seed crea de forma idempotente un dueño de cafetería: usuario con rol de cuenta `USER` más `MerchantStaff.role = OWNER` sobre una cafetería existente. Configurable con `OWNER_EMAIL` / `OWNER_PASSWORD` / `OWNER_CAFE_SLUG`. Sin `OWNER_PASSWORD` no se crea la credencial en ningún entorno: no hay contraseña por defecto en el código (antes la había, y quedó expuesta en el repositorio). Sin esta fila, `/admin` no puede resolver a un dueño.
 
 ## Risk
 
