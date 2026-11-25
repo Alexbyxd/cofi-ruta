@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
-import { ACCESS_ROLES_KEY, type AccessRole } from '../decorators/roles.decorator';
+import {
+  ACCESS_ROLES_KEY,
+  type AccessRole,
+} from '../decorators/roles.decorator';
 
 interface AuthorizedRequest {
   user?: { id?: string; role?: string };
@@ -53,8 +56,9 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const wantedMerchantRoles = required.filter((role): role is (typeof MERCHANT_ROLES)[number] =>
-      (MERCHANT_ROLES as readonly string[]).includes(role),
+    const wantedMerchantRoles = required.filter(
+      (role): role is (typeof MERCHANT_ROLES)[number] =>
+        (MERCHANT_ROLES as readonly string[]).includes(role),
     );
 
     if (wantedMerchantRoles.length > 0) {

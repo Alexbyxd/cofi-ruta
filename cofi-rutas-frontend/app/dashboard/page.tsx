@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsMounted } from '@/hooks/useIsMounted';
 import Link from 'next/link';
 
 /**
@@ -16,11 +17,10 @@ import Link from 'next/link';
 export default function DashboardPage() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useIsMounted();
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const handleScroll = () => setIsScrolled(window.scrollY > 10);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
@@ -803,7 +803,7 @@ export default function DashboardPage() {
               </div>
               <div className="bg-white p-4 rounded-lg brutal-border shadow-brutal-sm space-y-2">
                 <div className="flex items-center justify-between text-xs font-display font-bold">
-                  <span>"Circuito 3 Alturas de Oruro"</span>
+                  <span>&quot;Circuito 3 Alturas de Oruro&quot;</span>
                   <span className="text-leaf-green">2/3 Completados</span>
                 </div>
                 <p className="text-xs text-deep-mocha/90">
