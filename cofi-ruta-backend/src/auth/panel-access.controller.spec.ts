@@ -8,7 +8,7 @@ import { PanelAccessController } from './panel-access.controller';
 // Importar el controller arrastra el guard de JWT, que resuelve Better Auth de
 // forma perezosa; el mock evita cargar su ESM en Jest.
 jest.mock('./better-auth/auth.provider', () => ({
-  getAuth: () => ({ api: { getSession: async () => null } }),
+  getAuth: () => ({ api: { getSession: () => Promise.resolve(null) } }),
 }));
 
 jest.mock('../prisma/prisma.service', () => ({
@@ -31,9 +31,9 @@ describe('PanelAccessController authorization wiring', () => {
   });
 
   it('applies identity and role guards, in that order', () => {
-    expect(
-      Reflect.getMetadata(GUARDS_METADATA, PanelAccessController),
-    ).toEqual([JwtAuthGuard, RolesGuard]);
+    expect(Reflect.getMetadata(GUARDS_METADATA, PanelAccessController)).toEqual(
+      [JwtAuthGuard, RolesGuard],
+    );
   });
 });
 

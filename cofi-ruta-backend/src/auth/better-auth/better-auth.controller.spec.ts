@@ -31,10 +31,13 @@ describe('BetterAuthController', () => {
   beforeEach(() => {
     mockHandler.mockReset();
     mockHandler.mockResolvedValue(
-      new Response(JSON.stringify({ url: 'https://accounts.google.com/o/oauth2/v2/auth' }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      }),
+      new Response(
+        JSON.stringify({ url: 'https://accounts.google.com/o/oauth2/v2/auth' }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
     );
   });
 
@@ -47,7 +50,9 @@ describe('BetterAuthController', () => {
 
     expect(mockHandler).toHaveBeenCalledTimes(1);
     const webRequest = mockHandler.mock.calls[0][0] as Request;
-    expect(webRequest.url).toBe('http://localhost:3001/api/v1/auth/sign-in/social');
+    expect(webRequest.url).toBe(
+      'http://localhost:3001/api/v1/auth/sign-in/social',
+    );
     expect(webRequest.method).toBe('POST');
   });
 
@@ -58,9 +63,15 @@ describe('BetterAuthController', () => {
 
     await controller.handle(req, res);
 
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.send).toHaveBeenCalledWith(
-      Buffer.from(JSON.stringify({ url: 'https://accounts.google.com/o/oauth2/v2/auth' })),
+    const response = res as unknown as { status: jest.Mock; send: jest.Mock };
+    expect(response.status).toHaveBeenCalledWith(200);
+    // `res` is typed as the express Response, where `status` and `send` are
+    // methods, so a direct reference trips @typescript-eslint/unbound-method;
+    // read the mocks through a non-method view instead of binding them.
+    expect(response.send).toHaveBeenCalledWith(
+      Buffer.from(
+        JSON.stringify({ url: 'https://accounts.google.com/o/oauth2/v2/auth' }),
+      ),
     );
   });
 
@@ -72,7 +83,9 @@ describe('BetterAuthController', () => {
     await controller.handle(req, res);
 
     const webRequest = mockHandler.mock.calls[0][0] as Request;
-    expect(new URL(webRequest.url).pathname).toBe('/api/v1/auth/sign-in/social');
+    expect(new URL(webRequest.url).pathname).toBe(
+      '/api/v1/auth/sign-in/social',
+    );
     expect(webRequest.url).not.toContain('/api/auth');
   });
 

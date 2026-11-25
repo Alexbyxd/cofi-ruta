@@ -1,7 +1,11 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RolesGuard } from './roles.guard';
-import { ACCESS_ROLES_KEY, Roles, type AccessRole } from '../decorators/roles.decorator';
+import {
+  ACCESS_ROLES_KEY,
+  Roles,
+  type AccessRole,
+} from '../decorators/roles.decorator';
 
 interface FakeRequest {
   user?: { id?: string; role?: string };
@@ -18,12 +22,12 @@ function contextFor(user?: FakeRequest['user']): ExecutionContext {
 /** Ruta real: el decorador escribe la metadata y un Reflector real la lee. */
 @Roles('SUPERADMIN', 'OWNER')
 class DecoratedRoute {
-  static handler() {}
+  static handler = () => {};
 }
 
 function prismaWithMembership(membership: { id: string } | null) {
   return {
-    merchantStaff: { findFirst: async () => membership },
+    merchantStaff: { findFirst: () => Promise.resolve(membership) },
   };
 }
 
@@ -37,7 +41,7 @@ function guardFor(options: {
 
   const prisma = {
     merchantStaff: {
-      findFirst: async () => options.membership ?? null,
+      findFirst: () => Promise.resolve(options.membership ?? null),
     },
   };
 
@@ -90,9 +94,9 @@ describe('RolesGuard', () => {
   it('rejects a request without a session even when the route only wants merchants', async () => {
     const { guard, findFirst } = guardFor({ required: ['OWNER'] });
 
-    await expect(guard.canActivate(contextFor(undefined))).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
+    await expect(
+      guard.canActivate(contextFor(undefined)),
+    ).rejects.toBeInstanceOf(ForbiddenException);
     expect(findFirst).not.toHaveBeenCalled();
   });
 
@@ -149,7 +153,9 @@ describe('RolesGuard', () => {
       guard.canActivate(contextFor({ id: 'u4', role: 'USER' })),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: 'u4', role: { in: ['OWNER'] } } }),
+      expect.objectContaining({
+        where: { userId: 'u4', role: { in: ['OWNER'] } },
+      }),
     );
   });
 

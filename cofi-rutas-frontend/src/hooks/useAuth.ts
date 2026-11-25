@@ -14,7 +14,8 @@ import {
   waitForGooglePopup,
 } from "@/lib/google-oauth-popup";
 import { useRouter, usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useIsMounted } from "@/hooks/useIsMounted";
 import type { BetterAuthUser, BetterAuthSession } from "@/lib/auth-client";
 
 /**
@@ -68,8 +69,7 @@ export function useAuth() {
   const isAuthenticated = !!session?.user;
 
   // Track mount to avoid flash on SSR
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useIsMounted();
 
   /**
    * Login with email and password

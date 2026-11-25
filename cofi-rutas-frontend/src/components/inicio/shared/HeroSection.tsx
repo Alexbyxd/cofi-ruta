@@ -1,6 +1,6 @@
 'use client';
 
-import { Flame, Zap, Award, Users, TrendingUp, Coffee, MapPin } from 'lucide-react';
+import { Flame, Zap, Award, Users, TrendingUp, Coffee, MapPin, Wind } from 'lucide-react';
 
 type Variant = 'mobile' | 'desktop';
 
@@ -126,7 +126,6 @@ export function HeroSection({ variant, duoNames, greeting = GREETINGS.afternoon 
 
 // Mobile ClimateBanner (inline to avoid import cycle)
 function ClimateBannerMobile() {
-  const { Wind } = require('lucide-react');
   return (
     <div className="flex items-center gap-2.5 bg-[#FFFFFF] p-3 rounded-lg border-[3px] border-espresso-ink shadow-[3px_3px_0px_0px_#1A0F0A]">
       <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#FFD1B5] text-[#1A0F0A] shrink-0 border-2 border-espresso-ink">

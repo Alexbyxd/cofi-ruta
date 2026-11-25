@@ -67,6 +67,11 @@ export function useInicioData(options: UseInicioDataOptions = {}): UseInicioData
 
   useEffect(() => {
     if (loadOnMount) {
+      // Mount fetch. The state writes inside `loadCafes` (loading/error/count) are
+      // what paint the skeleton on the first pass, so they cannot be deferred to
+      // an async continuation without changing the initial render. This is the
+      // one effect in the codebase allowed to call setState synchronously.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadCafes(true);
     }
   }, [loadCafes, loadOnMount]);

@@ -47,13 +47,13 @@ export class BetterAuthController {
       init.body = new Uint8Array(req.rawBody);
     }
 
-    this.logger.log(`Better Auth request: ${req.method} ${betterAuthUrl} -> ${origin}`);
+    this.logger.log(
+      `Better Auth request: ${req.method} ${betterAuthUrl} -> ${origin}`,
+    );
     try {
       const requestUrl = new URL(betterAuthUrl, origin);
       this.logger.log(`Better Auth full URL: ${requestUrl.href}`);
-      const response = await getAuth().handler(
-        new Request(requestUrl, init),
-      );
+      const response = await getAuth().handler(new Request(requestUrl, init));
       this.logger.log(`Better Auth response: ${response.status}`);
 
       res.status(response.status);

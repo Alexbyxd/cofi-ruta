@@ -17,6 +17,7 @@ import {
 } from '@/components/inicio/shared';
 import { DesktopLayout } from '@/components/inicio/desktop/DesktopLayout';
 import { useInicioData } from '@/hooks/useInicioData';
+import { useIsMounted } from '@/hooks/useIsMounted';
 import { useCofiDuo } from '@/hooks/useCofiDuo';
 import { useComunidadData } from '@/hooks/useComunidadData';
 import { usePasaporte } from '@/hooks/usePasaporte';
@@ -34,7 +35,7 @@ import { usePasaporte } from '@/hooks/usePasaporte';
  */
 export default function InicioPage() {
   const [isDesktop, setIsDesktop] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useIsMounted();
 
   // Shared hooks - single source of truth for all logic
   const {
@@ -82,11 +83,6 @@ export default function InicioPage() {
     checkDesktop();
     window.addEventListener('resize', checkDesktop);
     return () => window.removeEventListener('resize', checkDesktop);
-  }, []);
-
-  // Mark as mounted after first render to avoid hydration mismatch
-  useEffect(() => {
-    setMounted(true);
   }, []);
 
   // Don't render until mounted to avoid hydration mismatch

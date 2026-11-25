@@ -4,9 +4,11 @@ import type { NextRequest } from "next/server";
 import type { BetterAuthUser } from "@/lib/auth-client";
 
 /**
- * Next.js Middleware - Route Protection with Better Auth Client
+ * Next.js Proxy (the Next 16 replacement for the deprecated `middleware`
+ * convention, which still worked but warned on every build) - Route Protection
+ * with Better Auth Client
  *
- * Uses authClient.getSession() to validate session on edge/runtime
+ * Uses authClient.getSession() to validate session on the Node.js runtime
  * Redirects unauthenticated users to /login with redirect parameter
  */
 
@@ -21,7 +23,7 @@ function isProtected(pathname: string): boolean {
   return protectedPaths.some((path) => pathname.startsWith(path));
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (isProtected(pathname)) {
@@ -50,7 +52,7 @@ export async function middleware(request: NextRequest) {
       response.headers.set("x-user-role", user.role || "USER");
       return response;
     } catch (err) {
-      console.error("[Middleware] Auth check failed:", err);
+      console.error("[Proxy] Auth check failed:", err);
       // On error, redirect to login for safety
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);

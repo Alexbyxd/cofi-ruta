@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Search, SlidersHorizontal, X, Filter } from 'lucide-react';
 import type { CafeFilterChip } from '@/types/cafes';
 import { DEFAULT_CAFE_FILTER_CHIPS } from '@/types/cafes';
@@ -19,6 +19,15 @@ export function SearchFilters({ variant, onSearch, onFilter, activeFilter, searc
   const [query, setQuery] = useState(searchQuery);
   const [showFilters, setShowFilters] = useState(true);
   const chipsRef = useRef<HTMLDivElement>(null);
+
+  // Keep the input in sync when the parent resets the query (clear, deep link),
+  // adjusting state during render instead of in an effect:
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [previousSearchQuery, setPreviousSearchQuery] = useState(searchQuery);
+  if (searchQuery !== previousSearchQuery) {
+    setPreviousSearchQuery(searchQuery);
+    setQuery(searchQuery);
+  }
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -45,10 +54,6 @@ export function SearchFilters({ variant, onSearch, onFilter, activeFilter, searc
       chipsRef.current.scrollBy({ left: direction === 'left' ? -200 : 200, behavior: 'smooth' });
     }
   };
-
-  useEffect(() => {
-    setQuery(searchQuery);
-  }, [searchQuery]);
 
   if (variant === 'mobile') {
     return (
